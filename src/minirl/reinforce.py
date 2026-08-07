@@ -8,10 +8,9 @@ import gymnasium as gym
 import torch
 from torch import distributions
 from torch import nn
+from torch import optim
 
 if TYPE_CHECKING:
-    from typing import SupportsFloat
-
     from shape_extensions import Int
     from shape_extensions import IntVar
     from torch import Tensor
@@ -58,7 +57,7 @@ class PolicyNetwork[
 def collect_trajectory_data(
     env: gym.Env,
     policy: PolicyNetwork,
-) -> tuple[list[Tensor], list[SupportsFloat]]:
+) -> tuple[list[Tensor], list[float]]:
     log_probs = []
     rewards = []
     done = False
@@ -76,7 +75,7 @@ def collect_trajectory_data(
 
         log_prob = dist.log_prob(action)
         log_probs.append(log_prob)
-        rewards.append(reward)
+        rewards.append(float(reward))
 
         done = terminated or truncated
 
@@ -87,7 +86,7 @@ def compute_discounted_returns(rewards: list[float], gamma: float) -> list[float
     returns = []
 
     # Compute returns from the end of the trajectory going back
-    current_return = 0
+    current_return = 0.0
     for r in reversed(rewards):
         current_return = r + current_return * gamma
         returns.append(current_return)
@@ -103,3 +102,20 @@ def compute_loss(log_probs: list[Tensor], returns: list[float]) -> Tensor:
 
     loss = torch.stack(losses).sum()
     return loss
+
+
+def train_episode(
+    env: gym.Env,
+    policy: PolicyNetwork,
+    optimizer: optim.Optimizer,
+    gamma: float,
+) -> float:
+    log_probs, rewards = collect_trajectory_data(env, policy)
+    returns = compute_discounted_returns(rewards, gamma)
+    loss = compute_loss(log_probs, returns)
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    return float(sum(rewards))

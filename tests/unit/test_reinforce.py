@@ -2,19 +2,54 @@
 
 import gymnasium as gym
 import pytest
-from shape_extensions import Int
 import torch
+from torch import optim
 
 from minirl import reinforce
+
+
+@pytest.fixture
+def max_episode_steps() -> int:
+    return 2
+
+
+@pytest.fixture
+def gamma() -> float:
+    return 0.9
+
+
+@pytest.fixture
+def env(max_episode_steps: int) -> gym.Env:
+    return gym.make("CartPole-v1", max_episode_steps=max_episode_steps)
+
+
+@pytest.fixture
+def obs_dim(env: gym.Env) -> int:
+    assert isinstance(env.observation_space, gym.spaces.Box)
+    assert env.observation_space.shape is not None
+    return env.observation_space.shape[0]
+
+
+@pytest.fixture
+def action_dim(env: gym.Env) -> int:
+    assert isinstance(env.action_space, gym.spaces.Discrete)
+    return int(env.action_space.n)
+
+
+@pytest.fixture
+def policy(obs_dim: int, action_dim: int) -> reinforce.PolicyNetwork:
+    return reinforce.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+
+
+@pytest.fixture
+def optimizer(policy: reinforce.PolicyNetwork) -> optim.Optimizer:
+    return optim.Adam(policy.parameters(), lr=0.01)
 
 
 class TestPolicyNetwork:
     """Tests for PolicyNetwork class."""
 
-    def test_forward(self):
-        obs_dim: Int[4] = 4
-        action_dim: Int[2] = 2
-        policy = reinforce.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+    def test_forward(self, policy, obs_dim):
         obs = torch.rand((2, obs_dim))
 
         probs = policy.forward(obs)
@@ -23,9 +58,7 @@ class TestPolicyNetwork:
         assert torch.all(probs.sum(dim=-1) == 1.0)
 
 
-def test_collect_trajectory_data():
-    env = gym.make("CartPole-v1", max_episode_steps=2)
-
+def test_collect_trajectory_data(env):
     with torch.no_grad():
         policy = reinforce.PolicyNetwork(obs_dim=4, action_dim=2)
 
@@ -35,10 +68,8 @@ def test_collect_trajectory_data():
     assert len(rewards) >= 1
 
 
-def test_compute_discounted_returns():
+def test_compute_discounted_returns(gamma):
     rewards = [1.0, 1.0, 1.0, 1.0]
-    gamma = 0.9
-
     num_rewards = len(rewards)
     expected_returns = [0.0 for _ in range(num_rewards + 1)]
     for i in reversed(range(num_rewards)):
@@ -57,3 +88,9 @@ def test_compute_loss():
         loss = reinforce.compute_loss(log_probs, returns)
 
     assert loss.item() == pytest.approx(-0.39)
+
+
+def test_train_episode(env, policy, optimizer, gamma):
+    total_reward = reinforce.train_episode(env, policy, optimizer, gamma)
+
+    assert total_reward > 0
