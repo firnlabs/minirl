@@ -30,3 +30,17 @@ def test_collect_trajectory_data():
 
     assert len(log_probs) >= 1
     assert len(rewards) >= 1
+
+
+def test_compute_discounted_returns():
+    rewards = [1.0, 1.0, 1.0, 1.0]
+    gamma = 0.9
+
+    num_rewards = len(rewards)
+    expected_returns = [0.0 for _ in range(num_rewards + 1)]
+    for i in reversed(range(num_rewards)):
+        expected_returns[i] = rewards[i] + expected_returns[i + 1] * gamma
+
+    returns = reinforce.compute_discounted_returns(rewards, gamma)
+
+    assert returns == expected_returns[:-1]
