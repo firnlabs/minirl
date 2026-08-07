@@ -13,6 +13,9 @@ dependencies = [
     "pyrefly-torch-stubs",
     "pyrefly-shape-extensions",
     "gymnasium>=1.3.0",
+    "matplotlib>=3.11.0",
+    "moviepy>=1.0.3",
+    "pygame>=2.6.0",
     "typer>=0.27.1",
 ]
 
@@ -35,6 +38,7 @@ dev = [
     "pytest-mock>=3.15.1",
     "ruff>=0.15.20",
     "pyrefly>=1.1.0",
+    "freezegun>=1.5.5",
 ]
 notebook = [
     "ipykernel>=7.3.0",
@@ -80,6 +84,7 @@ select = [
 ignore = [
     "D1",    # Ignore missing docstrings
     "D203",  # Conflict with D211
+    "B008",  # Function call in argument defaults (Typer Option pattern)
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -118,6 +123,7 @@ search_path = [
 
 [tool.pyrefly.errors]
 bad-override = false
+missing-attribute = false
 unused-ignore = true
 unused-type-ignore = true
 
