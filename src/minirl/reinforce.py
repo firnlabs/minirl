@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 
-class PolicyNetwork:
+class PolicyNetwork(nn.Module):
     """Policy network for REINFORCE algorithm."""
 
     def __init__(self, *, obs_dim: int, action_dim: int) -> None:
@@ -16,6 +16,7 @@ class PolicyNetwork:
             obs_dim: Dimension of the observation space.
             action_dim: Dimension of the action space.
         """
+        super().__init__()
         self._obs_dim = obs_dim
         self._action_dim = action_dim
         self._hidden_dim = 128
