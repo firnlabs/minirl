@@ -961,6 +961,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyrefly" },
+    { name = "pyrefly-shape-extensions" },
+    { name = "pyrefly-torch-stubs" },
     { name = "torch" },
 ]
 
@@ -985,6 +987,8 @@ notebook = [
 [package.metadata]
 requires-dist = [
     { name = "pyrefly", specifier = ">=1.2.0" },
+    { name = "pyrefly-shape-extensions", editable = "third-party/tensor-shapes/pyrefly-shape-extensions" },
+    { name = "pyrefly-torch-stubs", editable = "third-party/tensor-shapes/pyrefly-torch-stubs" },
     { name = "torch", specifier = ">=2.13.0" },
 ]
 
@@ -1471,6 +1475,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ed/98/4dafa3c7a1caed2dc8cc708dde09ba27963c7736508f55b626fff3024113/pyrefly-1.2.0-py3-none-win_amd64.whl", hash = "sha256:8a8964c224ccc4882730130955815de21ff443c1ac3f0b90685b19bf63848170", size = 14087387, upload-time = "2026-08-01T02:56:23.188Z" },
     { url = "https://files.pythonhosted.org/packages/1b/1c/df3cb0a2e5591660ded7a1836cd2f29dc48c91adb1c0a3a700a96f6d09e1/pyrefly-1.2.0-py3-none-win_arm64.whl", hash = "sha256:3a90bb8df39dfbac74b1f3b2e9d7c526b8f80568884c3944d955023a73ebf61e", size = 13430873, upload-time = "2026-08-01T02:56:25.425Z" },
 ]
+
+[[package]]
+name = "pyrefly-shape-extensions"
+version = "0.0.0"
+source = { editable = "third-party/tensor-shapes/pyrefly-shape-extensions" }
+
+[[package]]
+name = "pyrefly-torch-stubs"
+version = "0.0.0"
+source = { editable = "third-party/tensor-shapes/pyrefly-torch-stubs" }
+dependencies = [
+    { name = "pyrefly-shape-extensions" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyrefly-shape-extensions", specifier = "==0.0.0" }]
 
 [[package]]
 name = "pytest"
