@@ -7,7 +7,9 @@ authors = [
     { name = "Carlos Ezequiel", email = "carlos@firnresearch.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "torch>=2.13.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.26,<0.12.0"]
