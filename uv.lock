@@ -994,7 +994,7 @@ dev = [
     { name = "coverage-threshold", specifier = ">=0.6.2" },
     { name = "docformatter", specifier = ">=1.7.8" },
     { name = "pydoclint", specifier = ">=0.9.1" },
-    { name = "pyrefly", specifier = ">=0.0.1" },
+    { name = "pyrefly", specifier = ">=1.1.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
