@@ -10,7 +10,13 @@ requires-python = ">=3.12"
 dependencies = [
     "pyrefly>=1.2.0",
     "torch>=2.13.0",
+    "pyrefly-torch-stubs",
+    "pyrefly-shape-extensions",
 ]
+
+[tool.uv.sources]
+pyrefly-torch-stubs= { path = "./third-party/tensor-shapes/pyrefly-torch-stubs", editable = true }
+pyrefly-shape-extensions = { path = "./third-party/tensor-shapes/pyrefly-shape-extensions", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.11.26,<0.12.0"]
@@ -58,6 +64,7 @@ exclude_lines = [
 target-version = "py312"
 line-length = 88
 extend-include = ["*.ipynb"]
+exclude = ["third-party", "venv", ".venv"]
 
 [tool.ruff.lint]
 select = [
@@ -99,6 +106,13 @@ check-yield-types = false
 
 [tool.pyrefly]
 python-version = "3.12"
+project-excludes = [
+    "third-party/**",
+]
+search_path = [
+    "./third-party/tensor-shapes/pyrefly-torch-stubs",
+    "./third-party/tensor-shapes/pyrefly-shape-extensions",
+]
 
 [tool.pyrefly.errors]
 bad-override = false
