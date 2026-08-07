@@ -25,7 +25,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
     "ruff>=0.15.20",
-    "ty>=0.0.58",
+    "pyrefly>=0.0.1",
 ]
 notebook = [
     "ipykernel>=7.3.0",
@@ -96,15 +96,13 @@ skip-checking-private-functions = true
 check-return-types = false
 check-yield-types = false
 
-[tool.ty.environment]
+[tool.pyrefly]
 python-version = "3.11"
 
-[tool.ty.rules]
-invalid-method-override = "ignore"
-blanket-ignore-comment = "warn"
-missing-type-argument = "warn"
-unused-ignore-comment = "warn"
-unused-type-ignore-comment = "warn"
+[tool.pyrefly.errors]
+bad-override = false
+unused-ignore = true
+unused-type-ignore = true
 
 [tool.coverage-threshold]
 line_coverage_min = 80

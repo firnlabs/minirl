@@ -51,9 +51,9 @@ repos:
         types: [python]
         stages: [pre-commit]
         pass_filenames: false
-      - id: ty-check
-        name: ty type check
-        entry: uv run ty check
+      - id: pyrefly-check
+        name: Pyrefly type check
+        entry: uv run pyrefly check
         language: system
         types: [python]
         stages: [pre-commit]
