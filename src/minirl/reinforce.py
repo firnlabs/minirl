@@ -9,6 +9,7 @@ import torch
 from torch import distributions
 from torch import nn
 from torch import optim
+import typer
 
 if TYPE_CHECKING:
     from shape_extensions import Int
@@ -119,3 +120,35 @@ def train_episode(
     optimizer.step()
 
     return float(sum(rewards))
+
+
+def train(
+    learning_rate: float = typer.Option(1e-3, help="Learning rate."),
+    num_episodes: int = typer.Option(
+        100, min=1, help="Number of episodes to train on."
+    ),
+    gamma: float = typer.Option(0.99, min=0, max=1, help="Reward discount factor."),
+    max_episode_steps: int = typer.Option(
+        100, min=1, help="Maximum number of steps per episode."
+    ),
+) -> None:
+    env = gym.make("CartPole-v1", max_episode_steps=max_episode_steps)
+
+    assert isinstance(env.observation_space, gym.spaces.Box)
+    assert env.observation_space.shape is not None
+    obs_dim = env.observation_space.shape[0]
+
+    assert isinstance(env.action_space, gym.spaces.Discrete)
+    action_dim = int(env.action_space.n)
+
+    policy = PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+
+    optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
+
+    for i in range(num_episodes):
+        total_reward = train_episode(env, policy, optimizer, gamma)
+        typer.echo(f"Episode {i + 1}: total reward = {total_reward}")
+
+
+if __name__ == "__main__":
+    typer.run(train)

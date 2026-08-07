@@ -13,6 +13,7 @@ dependencies = [
     "pyrefly-torch-stubs",
     "pyrefly-shape-extensions",
     "gymnasium>=1.3.0",
+    "typer>=0.27.1",
 ]
 
 [tool.uv.sources]
