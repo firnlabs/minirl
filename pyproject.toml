@@ -64,7 +64,7 @@ exclude_lines = [
 target-version = "py312"
 line-length = 88
 extend-include = ["*.ipynb"]
-exclude = ["third-party"]
+exclude = ["third-party", "venv", ".venv"]
 
 [tool.ruff.lint]
 select = [
