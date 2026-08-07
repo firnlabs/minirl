@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import gymnasium as gym
+import torch
+from torch import distributions
 from torch import nn
 
 if TYPE_CHECKING:
+    from typing import SupportsFloat
+
     from shape_extensions import Int
     from shape_extensions import IntVar
     from torch import Tensor
@@ -48,3 +53,29 @@ class PolicyNetwork[
         h: Tensor[[B, HiddenDim]] = self._relu(self._fc1(obs))
         probs: Tensor[[B, OutDim]] = self._softmax(self._fc2(h))
         return probs
+
+
+def collect_trajectory_data(
+    env: gym.Env,
+    policy: PolicyNetwork,
+) -> tuple[list[Tensor], list[SupportsFloat]]:
+    log_probs = []
+    rewards = []
+    done = False
+
+    obs, _ = env.reset()
+
+    while not done:
+        obs_tensor = torch.tensor(obs).unsqueeze(0)
+        action_probs = policy(obs_tensor)
+
+        dist = distributions.Categorical(action_probs)
+        action = dist.sample()
+
+        obs, reward, terminated, truncated, _ = env.step(action.item())
+
+        log_prob = dist.log_prob(action)
+        log_probs.append(log_prob)
+        rewards.append(reward)
+
+    return log_probs, rewards
