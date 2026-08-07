@@ -78,4 +78,6 @@ def collect_trajectory_data(
         log_probs.append(log_prob)
         rewards.append(reward)
 
+        done = terminated or truncated
+
     return log_probs, rewards

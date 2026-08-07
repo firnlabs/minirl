@@ -23,7 +23,7 @@ class TestPolicyNetwork:
 
 
 def test_collect_trajectory_data():
-    env = gym.make("CartPole-v1")
+    env = gym.make("CartPole-v1", max_episode_steps=2)
     policy = reinforce.PolicyNetwork(obs_dim=4, action_dim=2)
 
     log_probs, rewards = reinforce.collect_trajectory_data(env, policy)
