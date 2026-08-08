@@ -37,4 +37,4 @@ def test_train_cli(cli_app, tmp_path):
     assert result.exit_code == 0, (
         f"Failed with exception: {repr(result.exception)}\nCLI Output:\n{result.output}"
     )
-    assert "Episode 1" in result.stdout
+    assert "Saved policy model to" in result.stdout

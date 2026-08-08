@@ -12,6 +12,7 @@ import torch
 from torch import distributions
 from torch import nn
 from torch import optim
+from tqdm import tqdm
 import typer
 
 if TYPE_CHECKING:
@@ -208,10 +209,11 @@ def train(
     optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
 
     episode_rewards = []
-    for i in range(num_episodes):
+    pbar = tqdm(range(1, num_episodes + 1), desc="Training episodes")
+    for _ in pbar:
         total_reward = train_episode(env, policy, optimizer, gamma)
         episode_rewards.append(total_reward)
-        typer.echo(f"Episode {i + 1}: total reward = {total_reward}")
+        pbar.set_postfix({"total_reward": total_reward})
 
     run_dir = _make_run_dir(output_dir)
 
