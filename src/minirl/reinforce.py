@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import gymnasium as gym
+from matplotlib import pyplot as plt
 import torch
 from torch import distributions
 from torch import nn
 from torch import optim
+from tqdm import tqdm
 import typer
 
 if TYPE_CHECKING:
     from shape_extensions import Int
     from shape_extensions import IntVar
     from torch import Tensor
+
+
+_ENV_ID = "CartPole-v1"
 
 
 class PolicyNetwork[
@@ -122,6 +129,55 @@ def train_episode(
     return float(sum(rewards))
 
 
+def _make_run_dir(output_dir: Path) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_dir = output_dir / f"reinforce-run-{timestamp}"
+    run_dir.mkdir(parents=True)
+    return run_dir
+
+
+def _save_reward_plot(episode_rewards: list[float], output_path: Path) -> None:
+    """Saves a plot of total rewards over training episodes."""
+    plt.figure()
+    plt.plot(range(1, len(episode_rewards) + 1), episode_rewards)
+    plt.xlabel("Episode")
+    plt.ylabel("Total Reward")
+    plt.title("REINFORCE Training Rewards")
+    plt.grid(True)
+    plt.savefig(output_path)
+    plt.close()
+
+
+def _record_simulation_video(
+    env_id: str,
+    policy: PolicyNetwork,
+    video_folder: Path,
+    max_steps: int = 100,
+) -> None:
+    """Runs a single simulation episode using the trained policy and records video."""
+    eval_env = gym.make(env_id, render_mode="rgb_array", max_episode_steps=max_steps)
+
+    # NOTE: RecordVideo will assume `video_folder` does not exist and will create it
+    # If the folder does exist, it will output a potential overwrite warning.
+    eval_env = gym.wrappers.RecordVideo(
+        eval_env,
+        video_folder=str(video_folder),
+        name_prefix="simulation",
+        disable_logger=True,
+    )
+
+    obs, _ = eval_env.reset()
+    done = False
+    with torch.no_grad():
+        while not done:
+            obs_tensor = torch.tensor(obs, dtype=torch.float32)
+            probs = policy(obs_tensor.unsqueeze(0))
+            action = int(torch.argmax(probs.squeeze(0)).item())
+            obs, _, terminated, truncated, _ = eval_env.step(action)
+            done = terminated or truncated
+    eval_env.close()
+
+
 def train(
     learning_rate: float = typer.Option(1e-3, help="Learning rate."),
     num_episodes: int = typer.Option(
@@ -131,8 +187,15 @@ def train(
     max_episode_steps: int = typer.Option(
         100, min=1, help="Maximum number of steps per episode."
     ),
+    output_dir: Path = typer.Option(
+        Path("runs/latest"),
+        help=(
+            "Directory path to save run outputs."
+            " Files will be stored in a timestamped subdirectory."
+        ),
+    ),
 ) -> None:
-    env = gym.make("CartPole-v1", max_episode_steps=max_episode_steps)
+    env = gym.make(_ENV_ID, max_episode_steps=max_episode_steps)
 
     assert isinstance(env.observation_space, gym.spaces.Box)
     assert env.observation_space.shape is not None
@@ -145,9 +208,29 @@ def train(
 
     optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
 
-    for i in range(num_episodes):
+    episode_rewards = []
+    pbar = tqdm(range(1, num_episodes + 1), desc="Training episodes")
+    for _ in pbar:
         total_reward = train_episode(env, policy, optimizer, gamma)
-        typer.echo(f"Episode {i + 1}: total reward = {total_reward}")
+        episode_rewards.append(total_reward)
+        pbar.set_postfix({"total_reward": total_reward})
+
+    run_dir = _make_run_dir(output_dir)
+
+    # Save model policy state dict
+    model_path = run_dir / "policy.pt"
+    torch.save(policy.state_dict(), model_path)
+    typer.echo(f"Saved policy model to {model_path}")
+
+    # Save plot of total rewards over episodes
+    plot_path = run_dir / "rewards.png"
+    _save_reward_plot(episode_rewards, plot_path)
+    typer.echo(f"Saved reward plot to {plot_path}")
+
+    # Record video simulation
+    video_dir = run_dir / "video"
+    _record_simulation_video(_ENV_ID, policy, video_dir, max_steps=max_episode_steps)
+    typer.echo(f"Saved simulation video to {video_dir}")
 
 
 if __name__ == "__main__":

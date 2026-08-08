@@ -1,3 +1,6 @@
+# Project output
+runs/
+
 # Virtual environments
 .venv/
 

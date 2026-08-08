@@ -14,7 +14,7 @@ def cli_app():
     return app
 
 
-def test_train_cli(cli_app):
+def test_train_cli(cli_app, tmp_path):
     runner = CliRunner()
 
     result = runner.invoke(
@@ -28,6 +28,8 @@ def test_train_cli(cli_app):
             "0.99",
             "--max-episode-steps",
             "2",
+            "--output-dir",
+            str(tmp_path),
         ],
         catch_exceptions=False,
     )
@@ -35,4 +37,4 @@ def test_train_cli(cli_app):
     assert result.exit_code == 0, (
         f"Failed with exception: {repr(result.exception)}\nCLI Output:\n{result.output}"
     )
-    assert "Episode 1" in result.stdout
+    assert "Saved policy model to" in result.stdout

@@ -1,5 +1,6 @@
 """Tests for reinforce.py."""
 
+import freezegun
 import gymnasium as gym
 import pytest
 import torch
@@ -54,8 +55,7 @@ class TestPolicyNetwork:
 
         probs = policy.forward(obs)
 
-        assert probs.shape == (2, 2)
-        assert torch.all(probs.sum(dim=-1) == 1.0)
+        assert torch.allclose(probs.sum(dim=-1), torch.ones(2))
 
 
 def test_collect_trajectory_data(env):
@@ -94,3 +94,24 @@ def test_train_episode(env, policy, optimizer, gamma):
     total_reward = reinforce.train_episode(env, policy, optimizer, gamma)
 
     assert total_reward > 0
+
+
+@freezegun.freeze_time("2026-01-01 00:00:00")
+def test_make_run_dir(tmp_path):
+    run_dir = reinforce._make_run_dir(tmp_path)
+    assert run_dir.exists()
+    assert run_dir.stem == "reinforce-run-20260101-000000"
+
+
+def test_save_reward_plot(tmp_path):
+    rewards = [10.0, 20.0, 30.0]
+    plot_file = tmp_path / "rewards.png"
+    reinforce._save_reward_plot(rewards, plot_file)
+    assert plot_file.exists()
+
+
+def test_record_simulation_video(tmp_path, policy):
+    video_dir = tmp_path / "video"
+    reinforce._record_simulation_video("CartPole-v1", policy, video_dir, max_steps=5)
+    assert video_dir.exists()
+    assert any(video_dir.glob("*.mp4"))
