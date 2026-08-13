@@ -10,61 +10,22 @@ import gymnasium as gym
 from matplotlib import pyplot as plt
 import torch
 from torch import distributions
-from torch import nn
 from torch import optim
 from tqdm import tqdm
 import typer
 
+from minirl import networks
+
 if TYPE_CHECKING:
-    from shape_extensions import Int
-    from shape_extensions import IntVar
     from torch import Tensor
 
 
 _ENV_ID = "CartPole-v1"
 
 
-class PolicyNetwork[
-    InDim: IntVar,
-    OutDim: IntVar,
-    HiddenDim: IntVar,
-](nn.Module):
-    """Policy network for REINFORCE algorithm."""
-
-    def __init__(
-        self,
-        *,
-        obs_dim: Int[InDim],
-        action_dim: Int[OutDim],
-        hidden_dim: Int[HiddenDim] = 128,
-    ) -> None:
-        """Initializes the policy network.
-
-        Args:
-            obs_dim: Dimension of the observation space.
-            action_dim: Dimension of the action space.
-            hidden_dim: Dimension of the hidden layer.
-        """
-        super().__init__()
-        self._obs_dim = obs_dim
-        self._action_dim = action_dim
-        self._hidden_dim = hidden_dim
-
-        self._fc1 = nn.Linear(obs_dim, hidden_dim)
-        self._relu = nn.ReLU()
-        self._fc2 = nn.Linear(hidden_dim, action_dim)
-        self._softmax = nn.Softmax(dim=-1)
-
-    def forward[B: IntVar](self, obs: Tensor[[B, InDim]]) -> Tensor[[B, OutDim]]:
-        """Runs the forward pass and returns action probabilities."""
-        h: Tensor[[B, HiddenDim]] = self._relu(self._fc1(obs))
-        probs: Tensor[[B, OutDim]] = self._softmax(self._fc2(h))
-        return probs
-
-
 def collect_trajectory_data(
     env: gym.Env,
-    policy: PolicyNetwork,
+    policy: networks.PolicyNetwork,
 ) -> tuple[list[Tensor], list[float]]:
     log_probs = []
     rewards = []
@@ -74,9 +35,9 @@ def collect_trajectory_data(
 
     while not done:
         obs_tensor = torch.tensor(obs).unsqueeze(0)
-        action_probs = policy(obs_tensor)
+        action_logits = policy(obs_tensor)
 
-        dist = distributions.Categorical(action_probs)
+        dist = distributions.Categorical(logits=action_logits)
         action = dist.sample()
 
         obs, reward, terminated, truncated, _ = env.step(action.item())
@@ -114,7 +75,7 @@ def compute_loss(log_probs: list[Tensor], returns: list[float]) -> Tensor:
 
 def train_episode(
     env: gym.Env,
-    policy: PolicyNetwork,
+    policy: networks.PolicyNetwork,
     optimizer: optim.Optimizer,
     gamma: float,
 ) -> float:
@@ -150,7 +111,7 @@ def _save_reward_plot(episode_rewards: list[float], output_path: Path) -> None:
 
 def _record_simulation_video(
     env_id: str,
-    policy: PolicyNetwork,
+    policy: networks.PolicyNetwork,
     video_folder: Path,
     max_steps: int = 100,
 ) -> None:
@@ -171,7 +132,8 @@ def _record_simulation_video(
     with torch.no_grad():
         while not done:
             obs_tensor = torch.tensor(obs, dtype=torch.float32)
-            probs = policy(obs_tensor.unsqueeze(0))
+            action_logits = policy(obs_tensor.unsqueeze(0))
+            probs = torch.softmax(action_logits, dim=-1)
             action = int(torch.argmax(probs.squeeze(0)).item())
             obs, _, terminated, truncated, _ = eval_env.step(action)
             done = terminated or truncated
@@ -204,7 +166,7 @@ def train(
     assert isinstance(env.action_space, gym.spaces.Discrete)
     action_dim = int(env.action_space.n)
 
-    policy = PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+    policy = networks.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
 
     optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
 
