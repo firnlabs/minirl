@@ -136,3 +136,9 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 version_provider = "pep621"
 message_length_limit = 50
+
+[tool.commit-check]
+[tool.commit-check.branch]
+conventional_branch = true
+allow_branch_types = ["fix", "feat", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore"]
+allow_branch_names = ["main", "master", "dev", "development"]
