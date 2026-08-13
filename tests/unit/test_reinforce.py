@@ -7,6 +7,7 @@ import torch
 from torch import optim
 
 from minirl import reinforce
+import minirl.networks
 
 
 @pytest.fixture
@@ -38,29 +39,18 @@ def action_dim(env: gym.Env) -> int:
 
 
 @pytest.fixture
-def policy(obs_dim: int, action_dim: int) -> reinforce.PolicyNetwork:
-    return reinforce.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+def policy(obs_dim: int, action_dim: int) -> minirl.networks.PolicyNetwork:
+    return minirl.networks.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
 
 
 @pytest.fixture
-def optimizer(policy: reinforce.PolicyNetwork) -> optim.Optimizer:
+def optimizer(policy: minirl.networks.PolicyNetwork) -> optim.Optimizer:
     return optim.Adam(policy.parameters(), lr=0.01)
-
-
-class TestPolicyNetwork:
-    """Tests for PolicyNetwork class."""
-
-    def test_forward(self, policy, obs_dim):
-        obs = torch.rand((2, obs_dim))
-
-        probs = policy.forward(obs)
-
-        assert torch.allclose(probs.sum(dim=-1), torch.ones(2))
 
 
 def test_collect_trajectory_data(env):
     with torch.no_grad():
-        policy = reinforce.PolicyNetwork(obs_dim=4, action_dim=2)
+        policy = minirl.networks.PolicyNetwork(obs_dim=4, action_dim=2)
 
     log_probs, rewards = reinforce.collect_trajectory_data(env, policy)
 
