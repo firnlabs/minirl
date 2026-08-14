@@ -19,11 +19,11 @@ def obs_dim(env: gym.Env) -> int:
 
 
 @pytest.fixture
-def action_dim(env: gym.Env) -> int:
+def num_actions(env: gym.Env) -> int:
     assert isinstance(env.action_space, gym.spaces.Discrete)
     return int(env.action_space.n)
 
 
 @pytest.fixture
-def policy(obs_dim: int, action_dim: int) -> networks.DiscreteActor:
-    return networks.DiscreteActor(obs_dim=obs_dim, num_actions=action_dim)
+def policy(obs_dim: int, num_actions: int) -> networks.DiscreteActor:
+    return networks.DiscreteActor(obs_dim=obs_dim, num_actions=num_actions)
