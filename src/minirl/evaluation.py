@@ -10,7 +10,7 @@ from minirl import networks
 
 def record_simulation_video(
     env_id: str,
-    policy: networks.PolicyNetwork,
+    policy: networks.DiscreteActor,
     video_folder: Path,
     max_steps: int = 100,
 ) -> None:

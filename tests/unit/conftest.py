@@ -25,5 +25,5 @@ def action_dim(env: gym.Env) -> int:
 
 
 @pytest.fixture
-def policy(obs_dim: int, action_dim: int) -> networks.PolicyNetwork:
-    return networks.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+def policy(obs_dim: int, action_dim: int) -> networks.DiscreteActor:
+    return networks.DiscreteActor(obs_dim=obs_dim, action_dim=action_dim)

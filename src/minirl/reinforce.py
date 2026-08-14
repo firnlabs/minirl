@@ -27,7 +27,7 @@ _ENV_ID = "CartPole-v1"
 
 def collect_trajectory_data(
     env: gym.Env,
-    policy: networks.PolicyNetwork,
+    policy: networks.DiscreteActor,
 ) -> tuple[list[Tensor], list[float]]:
     log_probs = []
     rewards = []
@@ -55,7 +55,7 @@ def collect_trajectory_data(
 
 def train_episode(
     env: gym.Env,
-    policy: networks.PolicyNetwork,
+    policy: networks.DiscreteActor,
     optimizer: optim.Optimizer,
     gamma: float,
 ) -> float:
@@ -96,7 +96,7 @@ def train(
     assert isinstance(env.action_space, gym.spaces.Discrete)
     action_dim = int(env.action_space.n)
 
-    policy = networks.PolicyNetwork(obs_dim=obs_dim, action_dim=action_dim)
+    policy = networks.DiscreteActor(obs_dim=obs_dim, action_dim=action_dim)
 
     optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
 
