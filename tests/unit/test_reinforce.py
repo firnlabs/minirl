@@ -14,13 +14,13 @@ def gamma() -> float:
 
 
 @pytest.fixture
-def optimizer(policy: networks.PolicyNetwork) -> optim.Optimizer:
+def optimizer(policy: networks.DiscreteActor) -> optim.Optimizer:
     return optim.Adam(policy.parameters(), lr=0.01)
 
 
 def test_collect_trajectory_data(env):
     with torch.no_grad():
-        policy = networks.PolicyNetwork(obs_dim=4, action_dim=2)
+        policy = networks.DiscreteActor(obs_dim=4, num_actions=2)
 
     log_probs, rewards = reinforce.collect_trajectory_data(env, policy)
 
