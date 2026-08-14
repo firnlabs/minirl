@@ -96,7 +96,7 @@ def train(
     assert isinstance(env.action_space, gym.spaces.Discrete)
     action_dim = int(env.action_space.n)
 
-    policy = networks.DiscreteActor(obs_dim=obs_dim, action_dim=action_dim)
+    policy = networks.DiscreteActor(obs_dim=obs_dim, num_actions=action_dim)
 
     optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
 

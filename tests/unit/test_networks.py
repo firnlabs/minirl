@@ -15,7 +15,7 @@ class TestDiscreteActor:
         batch_size = 4
 
         actor = networks.DiscreteActor(
-            obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim
+            obs_dim=obs_dim, num_actions=action_dim, hidden_dim=hidden_dim
         )
 
         obs = torch.rand((batch_size, obs_dim))
