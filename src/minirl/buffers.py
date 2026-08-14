@@ -1,5 +1,6 @@
 """Buffers for storing simulation rollouts."""
 
+from collections.abc import Iterator
 import dataclasses
 
 from shape_extensions import Int
@@ -20,7 +21,23 @@ class Step[ObsDim: IntVar, ActionDim: IntVar]:
     done: bool
 
 
+@dataclasses.dataclass(slots=True, frozen=True)
+class Minibatch[BatchSize: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
+    """Minibatch of rollout data."""
+
+    obs: Tensor[[BatchSize, ObsDim]]
+    actions: Tensor[[BatchSize]] | Tensor[[BatchSize, ActionDim]]
+    rewards: Tensor[[BatchSize]]
+    values: Tensor[[BatchSize]]
+    old_log_probs: Tensor[[BatchSize]]
+    dones: Tensor[[BatchSize]]
+    advantages: Tensor[[BatchSize]] | None
+    returns: Tensor[[BatchSize]] | None
+
+
 class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
+    """Buffer for storing simulation rollouts."""
+
     def __init__(
         self,
         *,
@@ -52,18 +69,13 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
         self._dones = torch.zeros((capacity,), dtype=torch.bool)
 
         # calculated values
+        # TODO: implement advantage and returns computation
         self._advantages = None
         self._returns = None
 
-    def add(self, step: Step) -> None:
-        self._obs[self._ptr] = step.obs.detach()
-        self._actions[self._ptr] = step.action.detach()
-        self._rewards[self._ptr] = step.reward
-        self._values[self._ptr] = step.value.detach()
-        self._log_probs[self._ptr] = step.log_prob.detach()
-        self._dones[self._ptr] = step.done
-
-        self._ptr += 1
+    @property
+    def capacity(self) -> Int[Capacity]:
+        return self._capacity
 
     @property
     def obs(self) -> Tensor[[Capacity, ObsDim]]:
@@ -96,3 +108,38 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
     @property
     def returns(self) -> Tensor[[Capacity]] | None:
         return self._returns
+
+    def add(self, step: Step[ObsDim, ActionDim]) -> None:
+        self._obs[self._ptr] = step.obs.detach()
+        self._actions[self._ptr] = step.action.detach()
+        self._rewards[self._ptr] = step.reward
+        self._values[self._ptr] = step.value.detach()
+        self._log_probs[self._ptr] = step.log_prob.detach()
+        self._dones[self._ptr] = step.done
+
+        self._ptr += 1
+
+    def get_batches[BatchSize: IntVar](
+        self, batch_size: Int[BatchSize]
+    ) -> Iterator[Minibatch[BatchSize, ObsDim, ActionDim]]:
+        num_samples = self.capacity
+        indices = torch.randperm(num_samples, device=self._device)
+
+        for i in range(0, num_samples, batch_size):
+            batch_indices = indices[i : i + batch_size]
+            yield Minibatch(
+                obs=self.obs[batch_indices],
+                actions=self.actions[batch_indices],
+                rewards=self.rewards[batch_indices],
+                values=self.values[batch_indices],
+                old_log_probs=self.log_probs[batch_indices],
+                dones=self.dones[batch_indices],
+                advantages=(
+                    self.advantages[batch_indices]
+                    if self.advantages is not None
+                    else None
+                ),
+                returns=(
+                    self.returns[batch_indices] if self.returns is not None else None
+                ),
+            )

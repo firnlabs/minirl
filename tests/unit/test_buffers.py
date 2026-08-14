@@ -7,8 +7,13 @@ from minirl import buffers
 
 
 @pytest.fixture
-def rollout_buffer(obs_dim: int) -> buffers.RolloutBuffer:
-    return buffers.RolloutBuffer(capacity=2, obs_dim=obs_dim)
+def capacity() -> int:
+    return 4
+
+
+@pytest.fixture
+def rollout_buffer(obs_dim: int, capacity: int) -> buffers.RolloutBuffer:
+    return buffers.RolloutBuffer(capacity=capacity, obs_dim=obs_dim)
 
 
 @pytest.fixture
@@ -39,3 +44,21 @@ class TestRolloutBuffer:
         assert buffer.values[0].item() > 0
         assert buffer.log_probs[0].item() > 0
         assert buffer.dones[0].item() is True
+
+    def test_get_batches(self, rollout_buffer, capacity, obs_dim):
+        buffer = rollout_buffer
+        batch_size = 2
+        num_batches = capacity / batch_size
+
+        batches = list(buffer.get_batches(batch_size=batch_size))
+
+        assert len(batches) == num_batches
+        batch = batches[0]
+        assert batch.obs.shape == (batch_size, obs_dim)
+        assert batch.actions.shape == (batch_size,)
+        assert batch.rewards.shape == (batch_size,)
+        assert batch.values.shape == (batch_size,)
+        assert batch.old_log_probs.shape == (batch_size,)
+        assert batch.dones.shape == (batch_size,)
+        assert batch.advantages is None
+        assert batch.returns is None
