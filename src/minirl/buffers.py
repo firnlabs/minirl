@@ -143,3 +143,9 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
                     self.returns[batch_indices] if self.returns is not None else None
                 ),
             )
+
+    def is_full(self) -> bool:
+        return self._ptr >= self._capacity
+
+    def reset(self) -> None:
+        self._ptr = 0

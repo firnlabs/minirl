@@ -62,3 +62,23 @@ class TestRolloutBuffer:
         assert batch.dones.shape == (batch_size,)
         assert batch.advantages is None
         assert batch.returns is None
+
+    def test_is_full(self, rollout_buffer, capacity, step):
+        buffer = rollout_buffer
+        assert not buffer.is_full()
+        for _ in range(capacity):
+            buffer.add(step)
+
+        assert buffer.is_full()
+
+    def test_reset(self, rollout_buffer, capacity, step):
+        buffer = rollout_buffer
+        for _ in range(capacity):
+            buffer.add(step)
+
+        assert buffer.is_full()
+
+        buffer.reset()
+
+        assert buffer._ptr == 0
+        assert not buffer.is_full()
