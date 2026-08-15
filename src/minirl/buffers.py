@@ -8,6 +8,8 @@ from shape_extensions import IntVar
 import torch
 from torch import Tensor
 
+from minirl import advantages
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Step[ObsDim: IntVar, ActionDim: IntVar]:
@@ -122,6 +124,24 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
     def get_batches[BatchSize: IntVar](
         self, batch_size: Int[BatchSize]
     ) -> Iterator[Minibatch[BatchSize, ObsDim, ActionDim]]:
+        """Generates minibatches of rollout data.
+
+        Args:
+            batch_size: Size of each minibatch.
+
+        Yields:
+            Minibatch of rollout data taken from a random sample.
+
+        Raises:
+            RuntimeError: If advantages and returns have not been computed
+                using compute_advantages_and_returns().
+        """
+        if self.advantages is None or self.returns is None:
+            raise RuntimeError(
+                "Advantages and returns must be computed before sampling batches."
+                " Call compute_advantages_and_returns() first."
+            )
+
         num_samples = self.capacity
         indices = torch.randperm(num_samples, device=self._device)
 
@@ -149,3 +169,25 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
 
     def reset(self) -> None:
         self._ptr = 0
+
+    def compute_advantages_and_returns(
+        self,
+        last_value: Tensor[[]],
+        last_done: bool,
+        *,
+        gamma: float = 0.99,
+        lam: float = 0.95,
+    ) -> None:
+        last_value = torch.tensor(0.0) if last_done else last_value
+
+        advantages_, returns = advantages.compute_gae(
+            rewards=self._rewards,
+            values=self._values,
+            last_value=last_value,
+            dones=self._dones,
+            gamma=gamma,
+            lam=lam,
+        )
+
+        self._advantages = advantages_
+        self._returns = returns

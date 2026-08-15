@@ -39,7 +39,7 @@ def compute_gae[Timesteps: IntVar](
     Returns:
         tuple of:
         - advantage at every timestep.
-        - target_values at every timestep (for critic training).
+        - return at every timestep (for critic training).
     """
     timesteps = rewards.shape[-1]
     advantages = torch.zeros_like(rewards)
@@ -60,6 +60,6 @@ def compute_gae[Timesteps: IntVar](
         last_gae = delta + gamma * lam * (1.0 - dones_[..., t]) * last_gae
         advantages[..., t] = last_gae
 
-    target_values = advantages + values
+    returns = advantages + values
 
-    return advantages, target_values
+    return advantages, returns

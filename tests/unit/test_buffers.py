@@ -49,6 +49,9 @@ class TestRolloutBuffer:
         buffer = rollout_buffer
         batch_size = 2
         num_batches = capacity / batch_size
+        # simulate post compute_advantages_and_returns() behavior
+        buffer._advantages = torch.rand(capacity)
+        buffer._returns = torch.rand(capacity)
 
         batches = list(buffer.get_batches(batch_size=batch_size))
 
@@ -60,8 +63,17 @@ class TestRolloutBuffer:
         assert batch.values.shape == (batch_size,)
         assert batch.old_log_probs.shape == (batch_size,)
         assert batch.dones.shape == (batch_size,)
-        assert batch.advantages is None
-        assert batch.returns is None
+        assert batch.advantages.shape == (batch_size,)
+        assert batch.returns.shape == (batch_size,)
+
+    def test_get_batches_error(self, rollout_buffer):
+        buffer = rollout_buffer
+        batch_size = 2
+        assert buffer.advantages is None
+        assert buffer.returns is None
+
+        with pytest.raises(RuntimeError, match="Advantages and returns"):
+            next(buffer.get_batches(batch_size=batch_size))
 
     def test_is_full(self, rollout_buffer, capacity, step):
         buffer = rollout_buffer
@@ -82,3 +94,39 @@ class TestRolloutBuffer:
 
         assert buffer._ptr == 0
         assert not buffer.is_full()
+
+    @pytest.mark.parametrize("last_done", [True, False])
+    def test_compute_advantages_and_returns(
+        self,
+        last_done,
+        rollout_buffer,
+        step,
+        capacity,
+        mocker,
+    ):
+        advantages = torch.rand(capacity)
+        returns = torch.rand(capacity)
+        gamma = 0.99
+        lam = 0.95
+        mock_compute_gae = mocker.patch(
+            "minirl.advantages.compute_gae", return_value=(advantages, returns)
+        )
+        last_value = torch.tensor(1.0)
+        buffer = rollout_buffer
+        for _ in range(capacity):
+            buffer.add(step)
+
+        buffer.compute_advantages_and_returns(
+            last_value=last_value, last_done=last_done
+        )
+
+        mock_compute_gae.assert_called_once_with(
+            rewards=buffer.rewards,
+            values=buffer.values,
+            last_value=torch.tensor(0.0) if last_done else last_value,
+            dones=buffer.dones,
+            gamma=gamma,
+            lam=lam,
+        )
+        assert buffer.advantages is not None
+        assert buffer.returns is not None
