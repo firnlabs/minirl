@@ -124,6 +124,24 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
     def get_batches[BatchSize: IntVar](
         self, batch_size: Int[BatchSize]
     ) -> Iterator[Minibatch[BatchSize, ObsDim, ActionDim]]:
+        """Generates minibatches of rollout data.
+
+        Args:
+            batch_size: Size of each minibatch.
+
+        Yields:
+            Minibatch of rollout data taken from a random sample.
+
+        Raises:
+            RuntimeError: If advantages and returns have not been computed
+                using compute_advantages_and_returns().
+        """
+        if self.advantages is None or self.returns is None:
+            raise RuntimeError(
+                "Advantages and returns must be computed before sampling batches."
+                " Call compute_advantages_and_returns() first."
+            )
+
         num_samples = self.capacity
         indices = torch.randperm(num_samples, device=self._device)
 

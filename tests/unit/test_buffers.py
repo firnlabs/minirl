@@ -49,6 +49,9 @@ class TestRolloutBuffer:
         buffer = rollout_buffer
         batch_size = 2
         num_batches = capacity / batch_size
+        # simulate post compute_advantages_and_returns() behavior
+        buffer._advantages = torch.rand(capacity)
+        buffer._returns = torch.rand(capacity)
 
         batches = list(buffer.get_batches(batch_size=batch_size))
 
@@ -60,8 +63,17 @@ class TestRolloutBuffer:
         assert batch.values.shape == (batch_size,)
         assert batch.old_log_probs.shape == (batch_size,)
         assert batch.dones.shape == (batch_size,)
-        assert batch.advantages is None
-        assert batch.returns is None
+        assert batch.advantages.shape == (batch_size,)
+        assert batch.returns.shape == (batch_size,)
+
+    def test_get_batches_error(self, rollout_buffer):
+        buffer = rollout_buffer
+        batch_size = 2
+        assert buffer.advantages is None
+        assert buffer.returns is None
+
+        with pytest.raises(RuntimeError, match="Advantages and returns"):
+            next(buffer.get_batches(batch_size=batch_size))
 
     def test_is_full(self, rollout_buffer, capacity, step):
         buffer = rollout_buffer

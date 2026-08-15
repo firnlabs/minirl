@@ -25,9 +25,9 @@ def test_compute_gae():
     last_value = torch.rand(1).squeeze()
     dones = torch.randint(0, 2, (timesteps,)).bool()
 
-    advantages_, target_values = advantages.compute_gae(
+    advantages_, returns = advantages.compute_gae(
         rewards=rewards, values=values, last_value=last_value, dones=dones
     )
 
     assert len(advantages_) == timesteps
-    assert len(target_values) == timesteps
+    assert len(returns) == timesteps
