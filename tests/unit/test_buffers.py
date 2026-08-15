@@ -82,3 +82,39 @@ class TestRolloutBuffer:
 
         assert buffer._ptr == 0
         assert not buffer.is_full()
+
+    @pytest.mark.parametrize("last_done", [True, False])
+    def test_compute_advantages_and_returns(
+        self,
+        last_done,
+        rollout_buffer,
+        step,
+        capacity,
+        mocker,
+    ):
+        advantages = torch.rand(capacity)
+        returns = torch.rand(capacity)
+        gamma = 0.99
+        lam = 0.95
+        mock_compute_gae = mocker.patch(
+            "minirl.advantages.compute_gae", return_value=(advantages, returns)
+        )
+        last_value = torch.tensor(1.0)
+        buffer = rollout_buffer
+        for _ in range(capacity):
+            buffer.add(step)
+
+        buffer.compute_advantages_and_returns(
+            last_value=last_value, last_done=last_done
+        )
+
+        mock_compute_gae.assert_called_once_with(
+            rewards=buffer.rewards,
+            values=buffer.values,
+            last_value=torch.tensor(0.0) if last_done else last_value,
+            dones=buffer.dones,
+            gamma=gamma,
+            lam=lam,
+        )
+        assert buffer.advantages is not None
+        assert buffer.returns is not None
