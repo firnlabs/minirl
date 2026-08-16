@@ -27,9 +27,10 @@ def record_simulation_video(
 
     obs, _ = eval_env.reset()
     done = False
+    device = next(policy.parameters()).device
     with torch.no_grad():
         while not done:
-            obs_tensor = torch.tensor(obs, dtype=torch.float32)
+            obs_tensor = torch.tensor(obs, dtype=torch.float32, device=device)
             action_logits = policy(obs_tensor.unsqueeze(0))
             probs = torch.softmax(action_logits, dim=-1)
             action = int(torch.argmax(probs.squeeze(0)).item())

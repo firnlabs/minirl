@@ -180,9 +180,7 @@ class PPOTrainer:
                 new_log_probs = dist.log_prob(minibatch.actions)
                 entropy = dist.entropy()
             else:
-                raise NotImplementedError(
-                    "Continuous action spaces not supported yet"
-                )  # TODO
+                raise NotImplementedError("Continuous action spaces not supported yet")
 
             values = self._critic(minibatch.obs).squeeze(-1)
 
