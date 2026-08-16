@@ -1,13 +1,18 @@
 """PPO training algorithm."""
 
 import logging
+from pathlib import Path
 
 import gymnasium as gym
 import torch
 from torch import distributions
+from torch import nn
 from tqdm import tqdm
+import typer
 
 from minirl import buffers
+from minirl import evaluation
+from minirl import experiments
 from minirl import losses
 from minirl import networks
 
@@ -102,6 +107,14 @@ class PPOTrainer:
         self._last_done = False
 
         self._last_obs, _ = self._env.reset()
+
+    @property
+    def actor(self) -> nn.Module:
+        return self._actor
+
+    @property
+    def critic(self) -> nn.Module:
+        return self._critic
 
     def collect_rollouts(self) -> float:
         """Run policy for num_steps, computing rewards and value estimates."""
@@ -268,7 +281,7 @@ class PPOTrainer:
         if total_timesteps < self._num_steps:
             raise ValueError(
                 f"total_timesteps ({total_timesteps}) <"
-                " num_steps per iteration ({self._num_steps})"
+                f" num_steps per iteration ({self._num_steps})"
             )
         num_iterations = total_timesteps // self._num_steps
         mean_returns = []
@@ -277,3 +290,88 @@ class PPOTrainer:
             logging.info("Iteration %d: mean_return=%.4f", iteration, mean_return)
             mean_returns.append(mean_return)
         return mean_returns
+
+
+def train(
+    env_name: str = typer.Option("CartPole-v1", help="Gymnasium environment ID."),
+    total_timesteps: int = typer.Option(
+        150_000, min=1, help="Total timesteps to train for."
+    ),
+    hidden_dim: int = typer.Option(64, min=1, help="Hidden dimension for networks."),
+    lr_actor: float = typer.Option(3e-4, help="Learning rate for actor."),
+    lr_critic: float = typer.Option(3e-4, help="Learning rate for critic."),
+    gamma: float = typer.Option(0.999, min=0.0, max=1.0, help="Discount factor."),
+    lam: float = typer.Option(0.95, min=0.0, max=1.0, help="GAE lambda parameter."),
+    clip_eps: float = typer.Option(
+        0.2, min=0.0, help="PPO policy ratio clipping parameter."
+    ),
+    entropy_coef: float = typer.Option(
+        0.01, min=0.0, help="Entropy coefficient for loss."
+    ),
+    vf_coef: float = typer.Option(
+        0.5, min=0.0, help="Value function loss coefficient."
+    ),
+    target_kl: float | None = typer.Option(
+        None, help="Target KL divergence for early stopping."
+    ),
+    max_grad_norm: float = typer.Option(
+        0.5, min=0.0, help="Max gradient norm for clipping."
+    ),
+    num_steps: int = typer.Option(
+        2048, min=1, help="Number of steps per rollout iteration."
+    ),
+    num_epochs: int = typer.Option(
+        10, min=1, help="Number of optimization epochs per iteration."
+    ),
+    batch_size: int = typer.Option(
+        64, min=1, help="Mini-batch size for SGD optimization."
+    ),
+    device: str = typer.Option(
+        "cpu", help="Device to run training on (e.g. cpu, cuda)."
+    ),
+    output_dir: Path = typer.Option(
+        Path("runs"),
+        help=(
+            "Directory path to save run outputs."
+            " Files will be stored in a timestamped subdirectory."
+        ),
+    ),
+) -> None:
+    trainer = PPOTrainer(
+        env_name=env_name,
+        hidden_dim=hidden_dim,
+        lr_actor=lr_actor,
+        lr_critic=lr_critic,
+        gamma=gamma,
+        lam=lam,
+        clip_eps=clip_eps,
+        entropy_coef=entropy_coef,
+        vf_coef=vf_coef,
+        target_kl=target_kl,
+        max_grad_norm=max_grad_norm,
+        num_steps=num_steps,
+        num_epochs=num_epochs,
+        batch_size=batch_size,
+        device=device,
+    )
+
+    mean_returns = trainer.train(total_timesteps=total_timesteps)
+
+    run_dir = experiments.make_run_dir(output_dir, name_prefix="ppo")
+
+    actor_path = experiments.save_model(trainer.actor, run_dir, name="actor")
+    typer.echo(f"Saved actor model to {actor_path}")
+
+    critic_path = experiments.save_model(trainer.critic, run_dir, name="critic")
+    typer.echo(f"Saved critic model to {critic_path}")
+
+    plot_path = experiments.save_reward_plot(mean_returns, run_dir, name="rewards_plot")
+    typer.echo(f"Saved reward plot to {plot_path}")
+
+    video_dir = run_dir / "video"
+    evaluation.record_simulation_video(env_name, trainer.actor, video_dir)
+    typer.echo(f"Saved simulation video to {video_dir}")
+
+
+if __name__ == "__main__":
+    typer.run(train)

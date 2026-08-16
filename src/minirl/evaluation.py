@@ -4,13 +4,12 @@ from pathlib import Path
 
 import gymnasium as gym
 import torch
-
-from minirl import networks
+from torch import nn
 
 
 def record_simulation_video(
     env_id: str,
-    policy: networks.DiscreteActor,
+    policy: nn.Module,
     video_folder: Path,
     max_steps: int = 100,
 ) -> None:
