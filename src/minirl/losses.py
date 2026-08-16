@@ -48,3 +48,24 @@ def compute_ppo_loss[BatchSize: IntVar](
         clip_fraction = (torch.abs(prob_ratio - 1.0) > clip_eps).float().mean()
 
     return policy_loss, mean_entropy, clip_fraction
+
+
+def compute_ppo_value_loss[BatchSize: IntVar](
+    *,
+    values: Tensor[[BatchSize]],
+    target_values: Tensor[[BatchSize]],
+    old_values: Tensor[[BatchSize]] | None = None,
+    clip_eps: float | None = None,
+) -> Tensor[[]]:
+    value_loss_unclipped = (values - target_values) ** 2
+
+    if old_values is None or clip_eps is None:
+        return 0.5 * torch.mean(value_loss_unclipped)
+
+    values_clipped = old_values + torch.clip(values - old_values, -clip_eps, clip_eps)
+    value_loss_clipped = (values_clipped - target_values) ** 2
+    value_loss = 0.5 * torch.mean(
+        torch.maximum(value_loss_unclipped, value_loss_clipped)
+    )
+
+    return value_loss

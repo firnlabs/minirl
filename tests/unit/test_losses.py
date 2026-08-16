@@ -38,4 +38,29 @@ def test_compute_ppo_loss():
     assert clip_fraction.item() == pytest.approx(0.5)
 
 
-# TODO: add test for PPO value loss
+@pytest.mark.parametrize(
+    "old_values_list, clip_eps",
+    [
+        (None, None),
+        ([0.0, 1.0], None),
+        (None, 0.1),
+        ([0.0, 1.0], 0.1),
+    ],
+)
+def test_compute_ppo_value_loss(old_values_list, clip_eps):
+    values = torch.tensor([1.0, 2.0])
+    target_values = torch.tensor([2.0, 3.0])
+    old_values = torch.tensor(old_values_list) if old_values_list is not None else None
+
+    loss = losses.compute_ppo_value_loss(
+        values=values,
+        target_values=target_values,
+        old_values=old_values,
+        clip_eps=clip_eps,
+    )
+
+    if old_values_list is None or clip_eps is None:
+        exp_loss = pytest.approx(0.5)
+    else:
+        exp_loss = pytest.approx(1.8050)
+    assert loss.item() == exp_loss
