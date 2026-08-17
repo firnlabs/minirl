@@ -9,13 +9,13 @@ import gymnasium as gym
 import torch
 from torch import distributions
 from torch import optim
+from torch import Tensor
 from tqdm import tqdm
 import typer
 
 from minirl import advantages
 from minirl import evaluation
 from minirl import experiments
-from minirl import losses
 from minirl import networks
 
 if TYPE_CHECKING:
@@ -53,6 +53,18 @@ def collect_trajectory_data(
     return log_probs, rewards
 
 
+def compute_policy_gradient_loss(
+    log_probs: list[Tensor], returns: list[float]
+) -> Tensor:
+    losses = []
+
+    for log_prob, ret in zip(log_probs, returns, strict=True):
+        losses.append(-log_prob * ret)
+
+    loss = torch.stack(losses).sum()
+    return loss
+
+
 def train_episode(
     env: gym.Env,
     policy: networks.DiscreteActor,
@@ -61,7 +73,7 @@ def train_episode(
 ) -> float:
     log_probs, rewards = collect_trajectory_data(env, policy)
     returns = advantages.compute_discounted_returns(rewards, gamma)
-    loss = losses.compute_policy_gradient_loss(log_probs, returns)
+    loss = compute_policy_gradient_loss(log_probs, returns)
 
     optimizer.zero_grad()
     loss.backward()

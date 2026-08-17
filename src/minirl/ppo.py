@@ -4,16 +4,17 @@ import logging
 from pathlib import Path
 
 import gymnasium as gym
+from shape_extensions import IntVar
 import torch
 from torch import distributions
 from torch import nn
+from torch import Tensor
 from tqdm import tqdm
 import typer
 
 from minirl import buffers
 from minirl import evaluation
 from minirl import experiments
-from minirl import losses
 from minirl import networks
 
 
@@ -32,6 +33,59 @@ def _parse_action_space(action_space: gym.Space) -> tuple[bool, int, int]:
         raise NotImplementedError(f"Unsupported action space: {type(action_space)}")
 
     return is_discrete, num_actions, action_dim
+
+
+def compute_ppo_loss[BatchSize: IntVar](
+    *,
+    old_log_probs: Tensor[[BatchSize]],
+    new_log_probs: Tensor[[BatchSize]],
+    advantages: Tensor[[BatchSize]],
+    clip_eps: float = 0.2,
+    entropy_coef: float = 0.02,
+    entropy: Tensor[[BatchSize]] | None = None,
+) -> tuple[Tensor[[]], Tensor[[]], Tensor[[]]]:
+    prob_ratio = torch.exp(new_log_probs - old_log_probs)
+
+    surr_obj = prob_ratio * advantages
+    prob_ratio_clipped = torch.clip(prob_ratio, min=1 - clip_eps, max=1 + clip_eps)
+    surr_obj_clipped = prob_ratio_clipped * advantages
+
+    policy_surr_loss = torch.mean(torch.minimum(surr_obj, surr_obj_clipped))
+
+    if entropy is not None:
+        mean_entropy = torch.mean(entropy)
+    else:
+        mean_entropy = torch.tensor(0.0, device=old_log_probs.device)
+
+    # Add minus sign since PyTorch minimizes loss by default
+    policy_loss = -(policy_surr_loss + entropy_coef * mean_entropy)
+
+    # diagnostics
+    with torch.no_grad():
+        clip_fraction = (torch.abs(prob_ratio - 1.0) > clip_eps).float().mean()
+
+    return policy_loss, mean_entropy, clip_fraction
+
+
+def compute_ppo_value_loss[BatchSize: IntVar](
+    *,
+    values: Tensor[[BatchSize]],
+    target_values: Tensor[[BatchSize]],
+    old_values: Tensor[[BatchSize]] | None = None,
+    clip_eps: float | None = None,
+) -> Tensor[[]]:
+    value_loss_unclipped = (values - target_values) ** 2
+
+    if old_values is None or clip_eps is None:
+        return 0.5 * torch.mean(value_loss_unclipped)
+
+    values_clipped = old_values + torch.clip(values - old_values, -clip_eps, clip_eps)
+    value_loss_clipped = (values_clipped - target_values) ** 2
+    value_loss = 0.5 * torch.mean(
+        torch.maximum(value_loss_unclipped, value_loss_clipped)
+    )
+
+    return value_loss
 
 
 class PPOTrainer:
@@ -186,7 +240,7 @@ class PPOTrainer:
 
             # compute losses
             assert minibatch.returns is not None
-            value_loss = losses.compute_ppo_value_loss(
+            value_loss = compute_ppo_value_loss(
                 values=values,
                 target_values=minibatch.returns,
                 old_values=minibatch.values,
@@ -194,7 +248,7 @@ class PPOTrainer:
             )
 
             assert minibatch.advantages is not None
-            policy_loss, mean_entropy, clip_fraction = losses.compute_ppo_loss(
+            policy_loss, mean_entropy, clip_fraction = compute_ppo_loss(
                 old_log_probs=minibatch.old_log_probs,
                 new_log_probs=new_log_probs,
                 advantages=minibatch.advantages,
