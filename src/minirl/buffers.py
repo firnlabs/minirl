@@ -55,7 +55,7 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
         self._ptr = 0
 
         # pre-allocated tensor storage
-        self._obs = torch.zeros((capacity, obs_dim), dtype=torch.float32)
+        self._obs = torch.zeros((capacity, obs_dim), dtype=torch.float32, device=device)
 
         if is_discrete:
             action_dtype = torch.long
@@ -64,14 +64,13 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
             action_dtype = torch.float32
             action_space = (capacity, action_dim)
 
-        self._actions = torch.zeros(action_space, dtype=action_dtype)
-        self._rewards = torch.zeros((capacity,), dtype=torch.float32)
-        self._values = torch.zeros((capacity,), dtype=torch.float32)
-        self._log_probs = torch.zeros((capacity,), dtype=torch.float32)
-        self._dones = torch.zeros((capacity,), dtype=torch.bool)
+        self._actions = torch.zeros(action_space, dtype=action_dtype, device=device)
+        self._rewards = torch.zeros((capacity,), dtype=torch.float32, device=device)
+        self._values = torch.zeros((capacity,), dtype=torch.float32, device=device)
+        self._log_probs = torch.zeros((capacity,), dtype=torch.float32, device=device)
+        self._dones = torch.zeros((capacity,), dtype=torch.bool, device=device)
 
         # calculated values
-        # TODO: implement advantage and returns computation
         self._advantages = None
         self._returns = None
 
@@ -143,7 +142,7 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
             )
 
         num_samples = self.capacity
-        indices = torch.randperm(num_samples, device=self._device)
+        indices = torch.randperm(num_samples, device="cpu")
 
         for i in range(0, num_samples, batch_size):
             batch_indices = indices[i : i + batch_size]

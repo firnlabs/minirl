@@ -34,7 +34,7 @@ def save_reward_plot(
     plt.plot(range(1, len(episode_rewards) + 1), episode_rewards)
     plt.xlabel("Episode")
     plt.ylabel("Total Reward")
-    plt.title("REINFORCE Training Rewards")
+    plt.title("Training Rewards")
     plt.grid(True)
 
     output_path = output_dir / f"{name}.png"
