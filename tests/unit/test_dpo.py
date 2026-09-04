@@ -32,17 +32,31 @@ def test_compute_sequence_log_probs(use_prompt_mask: bool):
 
     assert output.shape == (B,)
 
-    exp_logps_row0 = torch.log_softmax(logits[0], dim=-1)  # (T, V)
-    expected_row0 = (
-        # First two tokens (indices 0 and 1) are prompts so we skip them using
-        # the prompt_mask
-        # Note that the mask is shifted by 1 to the right
-        exp_logps_row0[1, labels[0, 2]]
-        + exp_logps_row0[2, labels[0, 3]]
-        + exp_logps_row0[3, labels[0, 4]]
-    )
+    exp_logps_row0 = torch.log_softmax(logits[0, :-1], dim=-1)
+    shifted_labels = labels[0, 1:]
     if prompt_mask is None:
-        # Include the first token if no prompt mask
-        expected_row0 += exp_logps_row0[0, labels[0, 1]]
+        loss_mask = attention_mask[0, 1:] == 1
+    else:
+        loss_mask = (attention_mask[0, 1:] == 1) * (prompt_mask[0, 1:] == 0)
+    expected_row0 = exp_logps_row0[loss_mask, shifted_labels[loss_mask]].sum()
 
     torch.testing.assert_close(output[0], expected_row0, rtol=1e-5, atol=1e-5)
+
+
+def test_compute_dpo_loss():
+    policy_chosen_logps = torch.tensor([-2.0, -5.0])
+    policy_rejected_logps = torch.tensor([-3.0, -4.0])
+    ref_chosen_logps = torch.tensor([-2.0, -5.0])
+    ref_rejected_logps = torch.tensor([-3.0, -4.0])
+    beta = 0.5
+
+    loss = dpo.compute_dpo_loss(
+        policy_chosen_logps,
+        policy_rejected_logps,
+        ref_chosen_logps,
+        ref_rejected_logps,
+        beta,
+    )
+
+    assert loss.shape == ()
+    assert loss.item() == pytest.approx(0.6931, rel=1e-4)

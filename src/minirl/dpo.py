@@ -51,3 +51,34 @@ def compute_sequence_log_probs[B: IntVar, T: IntVar, V: IntVar](
     )
 
     return masked_log_probs.sum(dim=-1)
+
+
+def compute_dpo_loss[B: IntVar](
+    policy_chosen_logps: Tensor[[B]],
+    policy_rejected_logps: Tensor[[B]],
+    ref_chosen_logps: Tensor[[B]],
+    ref_rejected_logps: Tensor[[B]],
+    beta: float = 0.1,
+) -> Tensor[[]]:
+    """Computes DPO loss and metrics.
+
+    Args:
+        policy_chosen_logps: Log probabilities of the chosen sequences from the
+            policy model.
+        policy_rejected_logps: Log probabilities of the rejected sequences from the
+            policy model.
+        ref_chosen_logps: Log probabilities of the chosen sequences from the reference
+            model.
+        ref_rejected_logps: Log probabilities of the rejected sequences from the
+            reference model.
+        beta: Scaling factor for the DPO loss.
+
+    Returns:
+        tuple containing loss, chosen_rewards, and rejected_rewards.
+    """
+    policy_log_ratio: Tensor[[B]] = policy_chosen_logps - policy_rejected_logps
+    ref_log_ratio: Tensor[[B]] = ref_chosen_logps - ref_rejected_logps
+    preference_logits: Tensor[[B]] = beta * (policy_log_ratio - ref_log_ratio)
+    preference_logps: Tensor[[B]] = F.logsigmoid(preference_logits)
+
+    return -preference_logps.mean()
