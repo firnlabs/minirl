@@ -55,12 +55,33 @@ def compute_sequence_log_probs[B: IntVar, T: IntVar, V: IntVar](
     return masked_log_probs.sum(dim=-1)
 
 
+def _compute_preference_log_probs[B: IntVar](
+    preference_logits: Tensor[[B]], label_smoothing: float = 0.0
+) -> Tensor[[B]]:
+    """Compute the log probabilities of preferences given preference logits.
+
+    Args:
+        preference_logits: Logits representing the preference between two options.
+        label_smoothing: Optional label smoothing factor.
+
+    Returns:
+        Log probabilities of the preferences.
+    """
+    assert label_smoothing >= 0.0
+    assert label_smoothing <= 0.5
+
+    chosen_log_probs = -(1 - label_smoothing) * F.logsigmoid(preference_logits)
+    rejected_log_probs = label_smoothing * F.logsigmoid(-preference_logits)
+    return chosen_log_probs - rejected_log_probs
+
+
 def compute_dpo_loss[B: IntVar](
     policy_chosen_logps: Tensor[[B]],
     policy_rejected_logps: Tensor[[B]],
     ref_chosen_logps: Tensor[[B]],
     ref_rejected_logps: Tensor[[B]],
     beta: float = 0.1,
+    label_smoothing: float = 0.0,
 ) -> Tensor[[]]:
     """Computes DPO loss and metrics.
 
@@ -74,6 +95,7 @@ def compute_dpo_loss[B: IntVar](
         ref_rejected_logps: Log probabilities of the rejected sequences from the
             reference model.
         beta: Scaling factor for the DPO loss.
+        label_smoothing: Optional label smoothing factor.
 
     Returns:
         tuple containing loss, chosen_rewards, and rejected_rewards.
@@ -81,9 +103,11 @@ def compute_dpo_loss[B: IntVar](
     policy_log_ratio: Tensor[[B]] = policy_chosen_logps - policy_rejected_logps
     ref_log_ratio: Tensor[[B]] = ref_chosen_logps - ref_rejected_logps
     preference_logits: Tensor[[B]] = beta * (policy_log_ratio - ref_log_ratio)
-    preference_logps: Tensor[[B]] = F.logsigmoid(preference_logits)
+    preference_log_probs: Tensor[[B]] = _compute_preference_log_probs(
+        preference_logits, label_smoothing=label_smoothing
+    )
 
-    return -preference_logps.mean()
+    return -preference_log_probs.mean()
 
 
 @dataclass(frozen=True, slots=True)
