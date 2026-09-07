@@ -60,3 +60,31 @@ def test_compute_dpo_loss():
 
     assert loss.shape == ()
     assert loss.item() == pytest.approx(0.6931, rel=1e-4)
+
+
+def test_compute_reward_metrics():
+    policy_chosen_logps = torch.tensor([-2.0, -5.0])
+    policy_rejected_logps = torch.tensor([-3.0, -4.0])
+    ref_chosen_logps = torch.tensor([-3.0, -6.0])
+    ref_rejected_logps = torch.tensor([-3.0, -4.0])
+    beta = 0.5
+
+    metrics = dpo.compute_reward_metrics(
+        policy_chosen_logps,
+        policy_rejected_logps,
+        ref_chosen_logps,
+        ref_rejected_logps,
+        beta,
+    )
+
+    assert isinstance(metrics, dpo.DPORewardMetrics)
+    torch.testing.assert_close(
+        metrics.chosen_rewards, torch.tensor([0.5, 0.5]), rtol=1e-5, atol=1e-5
+    )
+    torch.testing.assert_close(
+        metrics.rejected_rewards, torch.tensor([0.0, 0.0]), rtol=1e-5, atol=1e-5
+    )
+    torch.testing.assert_close(
+        metrics.reward_margin, torch.tensor([0.5, 0.5]), rtol=1e-5, atol=1e-5
+    )
+    assert metrics.reward_accuracy == pytest.approx(1.0, rel=1e-5)
