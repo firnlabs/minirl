@@ -5,6 +5,8 @@ References:
   is Secretly a Reward Model. https://arxiv.org/abs/2305.18290
 """
 
+from dataclasses import dataclass
+
 from shape_extensions import IntVar
 import torch
 from torch import Tensor
@@ -82,3 +84,48 @@ def compute_dpo_loss[B: IntVar](
     preference_logps: Tensor[[B]] = F.logsigmoid(preference_logits)
 
     return -preference_logps.mean()
+
+
+@dataclass(frozen=True, slots=True)
+class DPORewardMetrics[B: IntVar]:
+    """Dataclass to hold DPO reward metrics."""
+
+    chosen_rewards: Tensor[[B]]
+    rejected_rewards: Tensor[[B]]
+    reward_margin: Tensor[[B]]
+    reward_accuracy: float
+
+
+def compute_reward_metrics[B: IntVar](
+    policy_chosen_logps: Tensor[[B]],
+    policy_rejected_logps: Tensor[[B]],
+    ref_chosen_logps: Tensor[[B]],
+    ref_rejected_logps: Tensor[[B]],
+    beta: float = 0.1,
+) -> DPORewardMetrics:
+    """Computes DPO reward metrics.
+
+    Args:
+        policy_chosen_logps: Log probabilities of the chosen sequences from the
+            policy model.
+        policy_rejected_logps: Log probabilities of the rejected sequences from the
+            policy model.
+        ref_chosen_logps: Log probabilities of the chosen sequences from the reference
+            model.
+        ref_rejected_logps: Log probabilities of the rejected sequences from the
+            reference model.
+        beta: Scaling factor for the DPO loss.
+
+    Returns:
+        DPORewardMetrics: reward metrics.
+    """
+    chosen_rewards = beta * (policy_chosen_logps - ref_chosen_logps).detach()
+    rejected_rewards = beta * (policy_rejected_logps - ref_rejected_logps).detach()
+    reward_margin = chosen_rewards - rejected_rewards
+    reward_accuracy = (reward_margin > 0).float().mean().item()
+    return DPORewardMetrics(
+        chosen_rewards=chosen_rewards,
+        rejected_rewards=rejected_rewards,
+        reward_margin=reward_margin,
+        reward_accuracy=reward_accuracy,
+    )
