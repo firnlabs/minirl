@@ -6,6 +6,8 @@ References:
 """
 
 from dataclasses import dataclass
+from typing import Protocol
+from typing import TypedDict
 
 from shape_extensions import IntVar
 import torch
@@ -153,3 +155,131 @@ def compute_reward_metrics[B: IntVar](
         reward_margin=reward_margin,
         reward_accuracy=reward_accuracy,
     )
+
+
+class Tokenizer(Protocol):
+    """Protocol for a tokenizer."""
+
+    def __call__(
+        self, text: str, max_length: int | None = None
+    ) -> dict[str, list[int]]: ...
+
+
+class PreferenceInstance(TypedDict):
+    prompt: str
+    chosen: str
+    rejected: str
+
+
+def _tokenize_pair(
+    prompt: str,
+    response: str,
+    tokenizer: Tokenizer,
+    max_length: int = 512,
+    max_prompt_length: int | None = None,
+) -> tuple[list[int], list[int], list[int]]:
+    """Tokenize a prompt-response pair.
+
+    Returns:
+        Tuple of (token_ids, attention_mask, prompt_mask) for the
+        concatenated prompt + response sequence.
+    """
+    p = tokenizer(prompt)["input_ids"]
+
+    # ensure at least one prompt token
+    max_prompt_length = min(max_prompt_length or max_length // 2, max_length - 1)
+    if len(p) > max_prompt_length:
+        p = p[-max_prompt_length:]
+
+    r = tokenizer(response)["input_ids"]
+    max_response_length = max_length - len(p)
+    if len(r) > max_response_length:
+        r = r[:max_response_length]
+
+    # check that the response IDs are not empty
+    if not r:
+        raise ValueError("Response is empty after truncation.")
+
+    token_ids = p + r
+    attention_mask = [1] * len(token_ids)
+    prompt_mask = [1] * len(p) + [0] * len(r)
+
+    return token_ids, attention_mask, prompt_mask
+
+
+def collate_batch(
+    instances: list[PreferenceInstance],
+    tokenizer: Tokenizer,
+    max_length: int = 512,
+    max_prompt_length: int | None = None,
+) -> dict[str, Tensor]:
+    """Collates a batch of data into a single dictionary of tensors.
+
+    The output batch is ordered as:
+    [chosen_1, ..., chosen_B, rejected_1, ..., rejected_B]
+    so that the first half contains all chosen sequences and the second half
+    contains all rejected sequences.
+
+    Args:
+        instances: A list of dictionaries, each containing a
+            prompt, chosen response and rejected response.
+        tokenizer: A tokenizer that converts text into tokens.
+        max_length: The maximum length of the tokenized sequences.
+        max_prompt_length: The maximum length of the tokenized prompt sequence.
+
+    Returns:
+        Dictionary of tensors containing input_ids, attention_mask and prompt_mask.
+
+    Raises:
+        ValueError: when `instances` list is empty.
+    """
+    if not instances:
+        raise ValueError("`instances` is empty.")
+
+    chosen: list[tuple[list[int], list[int], list[int]]] = []
+    rejected: list[tuple[list[int], list[int], list[int]]] = []
+
+    for inst in instances:
+        chosen.append(
+            _tokenize_pair(
+                inst["prompt"],
+                inst["chosen"],
+                tokenizer,
+                max_length,
+                max_prompt_length,
+            )
+        )
+        rejected.append(
+            _tokenize_pair(
+                inst["prompt"],
+                inst["rejected"],
+                tokenizer,
+                max_length,
+                max_prompt_length,
+            )
+        )
+
+    # order: all chosen first, then all rejected
+    ordered = chosen + rejected
+
+    # pad to the longest sequence in the batch
+    max_seq_len = max(len(ids) for ids, _, _ in ordered)
+
+    # get pad token ID
+    # add "or 0" guard in case `tokenizer.pad_token_id` exists but is `None`
+    pad_token_id = getattr(tokenizer, "pad_token_id", 0) or 0
+
+    def pad(seq: list[int], value: int = 0) -> list[int]:
+        return seq + [value] * (max_seq_len - len(seq))
+
+    return {
+        "input_ids": torch.tensor(
+            [pad(ids, pad_token_id) for ids, _, _ in ordered], dtype=torch.long
+        ),
+        "attention_mask": torch.tensor(
+            [pad(attn) for _, attn, _ in ordered], dtype=torch.long
+        ),
+        "prompt_mask": torch.tensor(
+            [pad(pmask) for _, _, pmask in ordered], dtype=torch.long
+        ),
+    }
