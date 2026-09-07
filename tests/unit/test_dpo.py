@@ -2,6 +2,7 @@
 
 import pytest
 import torch
+from torch.nn import functional as F
 
 from minirl import dpo
 
@@ -49,6 +50,7 @@ def test_compute_dpo_loss():
     ref_chosen_logps = torch.tensor([-2.0, -5.0])
     ref_rejected_logps = torch.tensor([-3.0, -4.0])
     beta = 0.5
+    label_smoothing = 0.5
 
     loss = dpo.compute_dpo_loss(
         policy_chosen_logps,
@@ -56,10 +58,31 @@ def test_compute_dpo_loss():
         ref_chosen_logps,
         ref_rejected_logps,
         beta,
+        label_smoothing,
     )
 
     assert loss.shape == ()
-    assert loss.item() == pytest.approx(0.6931, rel=1e-4)
+    torch.testing.assert_close(loss, F.logsigmoid(torch.tensor([0.0, 0.0])).mean())
+
+
+@pytest.mark.parametrize("label_smoothing", [0.0, 0.1, 0.5])
+def test_compute_preference_log_probs(label_smoothing):
+    preference_logits = torch.tensor([-1.0, -2.0])
+
+    preference_log_probs = dpo._compute_preference_log_probs(
+        preference_logits, label_smoothing=label_smoothing
+    )
+
+    assert preference_log_probs.shape == preference_logits.shape
+    if label_smoothing == 0.0:
+        expected = -F.logsigmoid(preference_logits)
+    elif label_smoothing > 0.0:
+        expected = -(1 - label_smoothing) * F.logsigmoid(
+            preference_logits
+        ) - label_smoothing * F.logsigmoid(-preference_logits)
+    else:
+        raise ValueError("Invalid label_smoothing value")
+    torch.testing.assert_close(preference_log_probs, expected, rtol=1e-5, atol=1e-5)
 
 
 def test_compute_reward_metrics():
