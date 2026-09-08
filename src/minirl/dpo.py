@@ -11,6 +11,7 @@ from typing import TypedDict
 
 from shape_extensions import IntVar
 import torch
+from torch import nn
 from torch import Tensor
 from torch.nn import functional as F
 
@@ -283,3 +284,39 @@ def collate_batch(
             [pad(pmask) for _, _, pmask in ordered], dtype=torch.long
         ),
     }
+
+
+def concatenated_forward[B: IntVar](
+    model: nn.Module,
+    batch: dict[str, Tensor],
+) -> tuple[Tensor[[B]], Tensor[[B]]]:
+    """Generates chosen and rejected log probabilities from a preference batch.
+
+    Args:
+        model: Causal LM model generating output.logits on __call__.
+        batch: Dict of collated batch sequences (see `collate_batch`).
+
+    Returns:
+        tuple of chosen_log_probs, rejected_log_probs.
+
+    Raises:
+        ValueError: if batch[`input_ids`] size is not a non-zero even number.
+    """
+    input_ids = batch["input_ids"]
+    batch_size = input_ids.shape[0]
+    if batch_size == 0 or batch_size % 2 != 0:
+        raise ValueError("batch `input_ids` should be a non-zero even number.")
+
+    attention_mask = batch["attention_mask"]
+    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+    logits = outputs.logits
+
+    log_probs = compute_sequence_log_probs(
+        logits, input_ids, attention_mask, batch.get("prompt_mask")
+    )
+
+    half_batch = batch_size // 2
+    chosen_log_probs = log_probs[:half_batch]
+    rejected_log_probs = log_probs[half_batch:]
+
+    return chosen_log_probs, rejected_log_probs
