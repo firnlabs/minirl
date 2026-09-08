@@ -1,7 +1,12 @@
 """Tests for dpo module."""
 
+from dataclasses import dataclass
+
 import pytest
+from shape_extensions import IntVar
 import torch
+from torch import nn
+from torch import Tensor
 from torch.nn import functional as F
 
 from minirl import dpo
@@ -228,3 +233,67 @@ def test_collate_batch_error_instances_empty(tokenizer):
 
     with pytest.raises(ValueError, match="`instances` is empty"):
         dpo.collate_batch(instances, tokenizer)
+
+
+@dataclass(frozen=True)
+class DummyModelOutput:
+    logits: Tensor
+
+
+class DummyModel(nn.Module):
+    def __call__[B: IntVar, T: IntVar, V: IntVar](
+        self,
+        input_ids: Tensor[[B, T]],
+        attention_mask: Tensor[[B, T]],
+    ) -> DummyModelOutput:
+        _ = attention_mask  # unused
+        logits: Tensor[[B, T, V]] = torch.rand((*input_ids.shape, 8))
+        return DummyModelOutput(logits=logits)
+
+
+@pytest.fixture
+def model() -> DummyModel:
+    return DummyModel()
+
+
+def test_concatenated_forward(model: DummyModel):
+    vocab_size = 8
+    batch_size = 2
+    input_ids = torch.randint(0, vocab_size, (batch_size, vocab_size)).view(
+        batch_size, -1
+    )
+    prompt_mask = torch.zeros_like(input_ids)
+    prompt_mask[:, torch.arange(2)] = 1
+    attention_mask = torch.ones_like(input_ids)
+
+    batch = {
+        "input_ids": input_ids,
+        "prompt_mask": prompt_mask,
+        "attention_mask": attention_mask,
+    }
+
+    chosen_log_probs, rejected_log_probs = dpo.concatenated_forward(model, batch)
+
+    half_batch = batch_size // 2
+    assert chosen_log_probs.shape == (half_batch,)
+    assert rejected_log_probs.shape == (half_batch,)
+
+
+@pytest.mark.parametrize("input_ids", [[], [[1, 2, 3]]])
+def test_concatenated_forward_invalid_batch_size(input_ids, model: DummyModel):
+    input_ids = torch.tensor(input_ids, dtype=torch.long)
+    attention_mask = torch.ones_like(input_ids)
+    prompt_mask = torch.zeros_like(input_ids)
+    if len(prompt_mask.shape) == 2:
+        prompt_mask[:, 0] = 1
+
+    batch = {
+        "input_ids": input_ids,
+        "prompt_mask": prompt_mask,
+        "attention_mask": attention_mask,
+    }
+
+    with pytest.raises(
+        ValueError, match="batch `input_ids` should be a non-zero even number."
+    ):
+        dpo.concatenated_forward(model, batch)
