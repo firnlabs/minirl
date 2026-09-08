@@ -111,3 +111,120 @@ def test_compute_reward_metrics():
         metrics.reward_margin, torch.tensor([0.5, 0.5]), rtol=1e-5, atol=1e-5
     )
     assert metrics.reward_accuracy == pytest.approx(1.0, rel=1e-5)
+
+
+class DummyTokenizer:
+    PAD_TOKEN_ID = 0
+    EOS_TOKEN_ID = 1
+
+    def __call__(
+        self,
+        text: str,
+        max_length: int | None = None,
+    ) -> dict[str, list[int]]:
+        token_ids = [hash(w) % 1000 + 2 for w in text.split()]
+        if max_length is not None and max_length > 0:
+            token_ids = token_ids[:max_length]
+        attention_mask = [1] * len(token_ids)
+        return {
+            "input_ids": token_ids,
+            "attention_mask": attention_mask,
+        }
+
+    @property
+    def pad_token_id(self) -> int:
+        return 99
+
+
+@pytest.fixture
+def tokenizer() -> DummyTokenizer:
+    return DummyTokenizer()
+
+
+def test_collate_batch(tokenizer: DummyTokenizer):
+    instances: list[dpo.PreferenceInstance] = [
+        {"prompt": "Hello world", "chosen": "Good", "rejected": "Bad answer"},
+        {"prompt": "Hi there", "chosen": "Great job", "rejected": "Wrong"},
+    ]
+
+    out = dpo.collate_batch(instances, tokenizer)
+
+    batch_size = len(instances)
+
+    # batch dimension: chosen first, then rejected = 2 * batch_size
+    assert out["input_ids"].shape[0] == 2 * batch_size
+    assert out["attention_mask"].shape == out["input_ids"].shape
+    assert out["prompt_mask"].shape == out["input_ids"].shape
+
+    # verify chosen/rejected ordering and token ID correctness
+    pad_token_id = tokenizer.pad_token_id
+    for i, inst in enumerate(instances):
+        prompt_ids = tokenizer(inst["prompt"])["input_ids"]
+        chosen_ids = tokenizer(inst["chosen"])["input_ids"]
+        rejected_ids = tokenizer(inst["rejected"])["input_ids"]
+        prompt_len = len(prompt_ids)
+        chosen_len = len(prompt_ids) + len(chosen_ids)
+        rejected_len = len(prompt_ids) + len(rejected_ids)
+
+        # chosen rows are in the first half (with zero-padding at end)
+        row = out["input_ids"][i].tolist()
+        assert row[:chosen_len] == prompt_ids + chosen_ids
+        assert row[chosen_len:] == [pad_token_id] * (len(row) - chosen_len)
+
+        # rejected rows are in the second half
+        row = out["input_ids"][batch_size + i].tolist()
+        assert row[:rejected_len] == prompt_ids + rejected_ids
+        assert row[rejected_len:] == [pad_token_id] * (len(row) - rejected_len)
+
+        # prompt mask: 1 for prompt tokens, 0 for response + padding
+        chosen_pmask = out["prompt_mask"][i].tolist()
+        assert chosen_pmask[:prompt_len] == [1] * prompt_len
+        assert chosen_pmask[prompt_len:] == [0] * (len(chosen_pmask) - prompt_len)
+
+        # attention mask: 1 for real tokens, 0 for padding
+        chosen_attn = out["attention_mask"][i].tolist()
+        assert chosen_attn[:chosen_len] == [1] * chosen_len
+        assert chosen_attn[chosen_len:] == [0] * (len(chosen_attn) - chosen_len)
+
+
+@pytest.mark.parametrize("max_length", [2, 100])
+def test_collate_batch_max_length(max_length: int, tokenizer: DummyTokenizer):
+    instances: list[dpo.PreferenceInstance] = [
+        {"prompt": "a b c d e", "chosen": "f g h", "rejected": "i j"},
+    ]
+
+    out = dpo.collate_batch(instances, tokenizer, max_length=max_length)
+
+    prompt_ids = tokenizer("a b c d e")["input_ids"]
+    chosen_ids = tokenizer("f g h")["input_ids"]
+    max_seq_len = min(len(prompt_ids) + len(chosen_ids), max_length)
+
+    assert out["input_ids"].shape == (2, max_seq_len)
+
+
+@pytest.mark.parametrize("max_prompt_length", [None, 2, 100])
+def test_collate_batch_max_prompt_length(
+    max_prompt_length: int | None, tokenizer: DummyTokenizer
+):
+    instances: list[dpo.PreferenceInstance] = [
+        {"prompt": "a b c d e", "chosen": "f g h", "rejected": "i j"},
+    ]
+
+    out = dpo.collate_batch(instances, tokenizer, max_prompt_length=max_prompt_length)
+
+    prompt_ids = tokenizer("a b c d e")["input_ids"]
+    chosen_ids = tokenizer("f g h")["input_ids"]
+    prompt_length = len(prompt_ids)
+    if max_prompt_length is not None:
+        prompt_length = min(prompt_length, max_prompt_length)
+    max_seq_len = prompt_length + len(chosen_ids)
+
+    assert out["input_ids"].shape == (2, max_seq_len)
+    assert out["input_ids"][0][:prompt_length].tolist() == prompt_ids[-prompt_length:]
+
+
+def test_collate_batch_error_instances_empty(tokenizer):
+    instances = []
+
+    with pytest.raises(ValueError, match="`instances` is empty"):
+        dpo.collate_batch(instances, tokenizer)
