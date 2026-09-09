@@ -329,8 +329,8 @@ class TrainStepMetrics:
     loss: float
     mean_chosen_reward: float
     mean_rejected_reward: float
-    margin: float
-    accuracy: float
+    reward_margin: float
+    reward_accuracy: float
 
 
 class DPOTrainer:
@@ -402,6 +402,6 @@ class DPOTrainer:
             loss=policy_loss.item(),
             mean_chosen_reward=reward_metrics.chosen_rewards.mean().item(),
             mean_rejected_reward=reward_metrics.rejected_rewards.mean().item(),
-            margin=reward_metrics.reward_margin.mean().item(),
-            accuracy=reward_metrics.reward_accuracy,
+            reward_margin=reward_metrics.reward_margin.mean().item(),
+            reward_accuracy=reward_metrics.reward_accuracy,
         )

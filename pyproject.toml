@@ -17,6 +17,8 @@ dependencies = [
     "moviepy>=1.0.3",
     "pygame>=2.6.0",
     "typer>=0.27.1",
+    "transformers>=5.16.1",
+    "tqdm>=4.70.0",
 ]
 
 [tool.uv.sources]
@@ -64,6 +66,7 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+omit = ["*/examples/*"]
 
 [tool.ruff]
 target-version = "py312"
