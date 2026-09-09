@@ -365,9 +365,6 @@ class DPOTrainer:
             ref_chosen_logps, ref_rejected_logps = concatenated_forward(
                 self._ref_model, batch
             )
-        ref_chosen_logps, ref_rejected_logps = concatenated_forward(
-            self._ref_model, batch
-        )
 
         policy_chosen_logps, policy_rejected_logps = concatenated_forward(
             self._policy_model, batch

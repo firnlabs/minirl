@@ -351,3 +351,29 @@ class TestDPOTrainer:
             not torch.equal(param, orig_policy_params[name])
             for name, param in policy_model.named_parameters()
         )
+
+    def test_ref_model_forward_under_no_grad(self, model: DummyModel, mocker):
+        policy_model = model
+        ref_model = copy.deepcopy(policy_model)
+        optimizer = optim.Adam(policy_model.parameters())
+        trainer = dpo.DPOTrainer(policy_model, ref_model, optimizer)
+        batch = {
+            "input_ids": torch.randint(0, 8, (2, 8)),
+            "prompt_mask": torch.zeros((2, 8), dtype=torch.long),
+            "attention_mask": torch.ones((2, 8), dtype=torch.long),
+        }
+        grad_states = []
+        orig_forward = ref_model.forward
+        mock_forward = mocker.patch.object(
+            ref_model,
+            "forward",
+            side_effect=lambda *args, **kwargs: (
+                grad_states.append(torch.is_grad_enabled()),
+                orig_forward(*args, **kwargs),
+            )[1],
+        )
+
+        trainer.train_step(batch)
+
+        mock_forward.assert_called_once()
+        assert grad_states == [False]
