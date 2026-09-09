@@ -352,6 +352,9 @@ class DPOTrainer:
         self._max_grad_norm = max_grad_norm
         self._label_smoothing = label_smoothing
 
+        # ensure policy model is trainable
+        self._policy_model.train()
+
         # ensure reference model parameters are frozen
         self._ref_model.eval()
         for p in self._ref_model.parameters():
@@ -362,6 +365,9 @@ class DPOTrainer:
             ref_chosen_logps, ref_rejected_logps = concatenated_forward(
                 self._ref_model, batch
             )
+        ref_chosen_logps, ref_rejected_logps = concatenated_forward(
+            self._ref_model, batch
+        )
 
         policy_chosen_logps, policy_rejected_logps = concatenated_forward(
             self._policy_model, batch

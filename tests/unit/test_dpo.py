@@ -325,13 +325,29 @@ class TestDPOTrainer:
         prompt_mask = torch.zeros_like(input_ids)
         prompt_mask[:, torch.arange(2)] = 1
         attention_mask = torch.ones_like(input_ids)
-
         batch = {
             "input_ids": input_ids,
             "prompt_mask": prompt_mask,
             "attention_mask": attention_mask,
         }
 
+        # Snapshot model params before step
+        orig_ref_params = {
+            name: param.clone() for name, param in ref_model.named_parameters()
+        }
+        orig_policy_params = {
+            name: param.clone() for name, param in policy_model.named_parameters()
+        }
+
         metrics = trainer.train_step(batch)
 
         assert isinstance(metrics, dpo.TrainStepMetrics)
+        # check that ref model params are not changed
+        for name, param in ref_model.named_parameters():
+            assert torch.equal(param, orig_ref_params[name])
+            assert param.grad is None
+        # check that policy model params have changed
+        assert any(
+            not torch.equal(param, orig_policy_params[name])
+            for name, param in policy_model.named_parameters()
+        )
