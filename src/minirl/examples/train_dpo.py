@@ -38,11 +38,11 @@ def _create_synthetic_preference_dataset():
     ]
 
 
-def _get_device() -> torch.device | str:
+def _get_device() -> str:
     if torch.accelerator.is_available():
         device = torch.accelerator.current_accelerator()
         assert device is not None
-        return device
+        return str(device)
 
     return "cpu"
 
@@ -57,7 +57,7 @@ def train(
         16, min=1, help="Number of preference pairs per training batch."
     ),
     num_steps: int = typer.Option(50, min=1, help="Number of training steps."),
-    device: torch.device | str = typer.Option(
+    device: str = typer.Option(
         "auto",
         help=(
             "Device to train on ('cpu', 'mps', 'cuda', or 'auto')."
