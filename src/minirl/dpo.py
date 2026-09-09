@@ -320,3 +320,91 @@ def concatenated_forward[B: IntVar](
     rejected_log_probs = log_probs[half_batch:]
 
     return chosen_log_probs, rejected_log_probs
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TrainStepMetrics:
+    """Output metrics of DPOTrainer."""
+
+    loss: float
+    mean_chosen_reward: float
+    mean_rejected_reward: float
+    margin: float
+    accuracy: float
+
+
+class DPOTrainer:
+    """DPO trainer class."""
+
+    def __init__(
+        self,
+        policy_model: torch.nn.Module,
+        ref_model: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        beta: float = 0.1,
+        max_grad_norm: float | None = 1.0,
+        label_smoothing: float = 0.0,
+    ) -> None:
+        self._policy_model = policy_model
+        self._ref_model = ref_model
+        self._optimizer = optimizer
+        self._beta = beta
+        self._max_grad_norm = max_grad_norm
+        self._label_smoothing = label_smoothing
+
+        # ensure policy model is trainable
+        self._policy_model.train()
+
+        # ensure reference model parameters are frozen
+        self._ref_model.eval()
+        for p in self._ref_model.parameters():
+            p.requires_grad = False
+
+    def train_step(self, batch: dict[str, Tensor]) -> TrainStepMetrics:
+        with torch.no_grad():
+            ref_chosen_logps, ref_rejected_logps = concatenated_forward(
+                self._ref_model, batch
+            )
+        ref_chosen_logps, ref_rejected_logps = concatenated_forward(
+            self._ref_model, batch
+        )
+
+        policy_chosen_logps, policy_rejected_logps = concatenated_forward(
+            self._policy_model, batch
+        )
+
+        policy_loss = compute_dpo_loss(
+            policy_chosen_logps,
+            policy_rejected_logps,
+            ref_chosen_logps,
+            ref_rejected_logps,
+            self._beta,
+            self._label_smoothing,
+        )
+
+        self._optimizer.zero_grad()
+        policy_loss.backward()
+
+        if self._max_grad_norm is not None and self._max_grad_norm > 0:
+            torch.nn.utils.clip_grad_norm_(
+                self._policy_model.parameters(),
+                max_norm=self._max_grad_norm,
+            )
+
+        self._optimizer.step()
+
+        reward_metrics = compute_reward_metrics(
+            policy_chosen_logps,
+            policy_rejected_logps,
+            ref_chosen_logps,
+            ref_rejected_logps,
+            self._beta,
+        )
+
+        return TrainStepMetrics(
+            loss=policy_loss.item(),
+            mean_chosen_reward=reward_metrics.chosen_rewards.mean().item(),
+            mean_rejected_reward=reward_metrics.rejected_rewards.mean().item(),
+            margin=reward_metrics.reward_margin.mean().item(),
+            accuracy=reward_metrics.reward_accuracy,
+        )

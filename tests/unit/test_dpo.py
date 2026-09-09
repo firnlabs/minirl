@@ -1,11 +1,13 @@
 """Tests for dpo module."""
 
+import copy
 from dataclasses import dataclass
 
 import pytest
 from shape_extensions import IntVar
 import torch
 from torch import nn
+from torch import optim
 from torch import Tensor
 from torch.nn import functional as F
 
@@ -241,13 +243,21 @@ class DummyModelOutput:
 
 
 class DummyModel(nn.Module):
-    def __call__[B: IntVar, T: IntVar, V: IntVar](
+    def __init__(self, vocab_size: int = 8, hidden_dim: int = 16):
+        super().__init__()
+        self._vocab_size = vocab_size
+        self._hidden_dim = hidden_dim
+        self._embedding = nn.Embedding(vocab_size, hidden_dim)
+        self._linear = nn.Linear(hidden_dim, vocab_size)
+
+    def forward[B: IntVar, T: IntVar, V: IntVar](
         self,
         input_ids: Tensor[[B, T]],
-        attention_mask: Tensor[[B, T]],
+        attention_mask: Tensor[[B, T]] | None = None,
     ) -> DummyModelOutput:
         _ = attention_mask  # unused
-        logits: Tensor[[B, T, V]] = torch.rand((*input_ids.shape, 8))
+        emb = self._embedding(input_ids)
+        logits: Tensor[[B, T, V]] = self._linear(emb)
         return DummyModelOutput(logits=logits)
 
 
@@ -297,3 +307,47 @@ def test_concatenated_forward_invalid_batch_size(input_ids, model: DummyModel):
         ValueError, match="batch `input_ids` should be a non-zero even number."
     ):
         dpo.concatenated_forward(model, batch)
+
+
+class TestDPOTrainer:
+    """Tests for DPOTrainer class."""
+
+    def test_train_step(self, model):
+        policy_model = model
+        ref_model = copy.deepcopy(policy_model)
+        optimizer = optim.Adam(policy_model.parameters())
+        trainer = dpo.DPOTrainer(policy_model, ref_model, optimizer)
+        vocab_size = 8
+        batch_size = 2
+        input_ids = torch.randint(0, vocab_size, (batch_size, vocab_size)).view(
+            batch_size, -1
+        )
+        prompt_mask = torch.zeros_like(input_ids)
+        prompt_mask[:, torch.arange(2)] = 1
+        attention_mask = torch.ones_like(input_ids)
+        batch = {
+            "input_ids": input_ids,
+            "prompt_mask": prompt_mask,
+            "attention_mask": attention_mask,
+        }
+
+        # Snapshot model params before step
+        orig_ref_params = {
+            name: param.clone() for name, param in ref_model.named_parameters()
+        }
+        orig_policy_params = {
+            name: param.clone() for name, param in policy_model.named_parameters()
+        }
+
+        metrics = trainer.train_step(batch)
+
+        assert isinstance(metrics, dpo.TrainStepMetrics)
+        # check that ref model params are not changed
+        for name, param in ref_model.named_parameters():
+            assert torch.equal(param, orig_ref_params[name])
+            assert param.grad is None
+        # check that policy model params have changed
+        assert any(
+            not torch.equal(param, orig_policy_params[name])
+            for name, param in policy_model.named_parameters()
+        )
