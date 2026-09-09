@@ -9,6 +9,8 @@ import typer
 
 from minirl import dpo
 
+torch.manual_seed(42)
+
 
 def _create_synthetic_preference_dataset():
     prompts = [
@@ -59,9 +61,7 @@ def _generate_completion(
             **inputs,
             max_new_tokens=max_new_tokens,
             pad_token_id=tokenizer.eos_token_id,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
+            do_sample=False,
         )
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
