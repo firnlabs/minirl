@@ -18,6 +18,7 @@ def _create_synthetic_preference_dataset():
         "The newly released software update is",
     ] * 25  # 100 examples
 
+    # preference: positive sentiments
     chosen = [
         " prompt, exceptionally polite, and resolved my problem completely.",
         " we are well organized and confident in delivering high quality work on time.",
@@ -25,6 +26,7 @@ def _create_synthetic_preference_dataset():
         " quite stable, fast, and introduces several helpful productivity features.",
     ] * 25
 
+    # disprefer: negative sentiments
     rejected = [
         " awful, slow, and completely ignored what I asked.",
         " a disaster and everyone is stressed and blaming each other.",
@@ -45,6 +47,53 @@ def _get_device() -> str:
         return str(device)
 
     return "cpu"
+
+
+def _generate_completion(
+    model, tokenizer, prompt: str, max_new_tokens: int = 20
+) -> str:
+    model.eval()
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            pad_token_id=tokenizer.eos_token_id,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+        )
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+
+def _compare_completions(policy_model, ref_model, tokenizer) -> None:
+    prompts = {
+        "In-distribution": [
+            "Customer service was",
+            "The project deadline is approaching and",
+        ],
+        "Near-domain (adjacent tech/work)": [
+            "During code review, the senior engineer noted that",
+            "When the client requested sudden changes to the scope,",
+        ],
+        "Adversity": [
+            "When the server experienced unexpected downtime,",
+            "When a teammate makes an honest mistake,",
+        ],
+        "Far-domain (everyday situations)": [
+            "The hotel check-in experience was",
+            "When teaching a child how to ride a bicycle,",
+        ],
+    }
+    typer.echo("Qualitative model comparison")
+    for category, prompt_list in prompts.items():
+        typer.echo(f"\n--- {category} ---")
+        for prompt in prompt_list:
+            before = _generate_completion(ref_model, tokenizer, prompt)
+            after = _generate_completion(policy_model, tokenizer, prompt)
+            typer.echo(f"\nPrompt: '{prompt}'")
+            typer.echo(f"  [Ref / Before]: {before.strip()}")
+            typer.echo(f"  [Policy/After]: {after.strip()}")
 
 
 def train(
@@ -114,6 +163,9 @@ def train(
         f"Accuracy under target: {metrics.reward_accuracy}"
     )
     typer.echo("DPO alignment training done.")
+
+    # check completions between ref and policy models
+    _compare_completions(policy_model, ref_model, tokenizer)
 
 
 if __name__ == "__main__":
