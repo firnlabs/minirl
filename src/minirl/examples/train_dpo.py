@@ -162,6 +162,7 @@ def train(
     assert metrics.reward_accuracy >= 0.90, (
         f"Accuracy under target: {metrics.reward_accuracy}"
     )
+    assert metrics.loss < 0.30, f"Loss failed to drop below 0.30: {metrics.loss}"
     typer.echo("DPO alignment training done.")
 
     # check completions between ref and policy models
