@@ -88,14 +88,21 @@ def train(
 
     typer.echo("Starting DPO Training Steps:")
     metrics = None
-    for step in tqdm(range(1, num_steps + 1)):
+    pbar = tqdm(range(1, num_steps + 1), desc="Training")
+    for step in pbar:
         metrics = trainer.train_step(batch)
+        pbar.set_postfix(
+            loss=f"{metrics.loss:.4f}", acc=f"{metrics.reward_accuracy * 100:.1f}%"
+        )
         if step % 10 == 0 or step == 1:
-            typer.echo(
-                f"Step {step:02d}"
-                f" | Loss: {metrics.loss:.4f}"
-                f" | Margin: {metrics.reward_margin:+.4f}"
-                f" | Acc: {metrics.reward_accuracy * 100:.1f}%"
+            pbar.write(
+                typer.style(
+                    f"Step {step:02d}"
+                    f" | Loss: {metrics.loss:.4f}"
+                    f" | Margin: {metrics.reward_margin:+.4f}"
+                    f" | Acc: {metrics.reward_accuracy * 100:.1f}%",
+                    fg=typer.colors.CYAN,
+                ),
             )
 
     # final step assertions
