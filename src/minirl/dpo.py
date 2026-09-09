@@ -73,7 +73,7 @@ def _compute_preference_log_probs[B: IntVar](
     assert label_smoothing >= 0.0
     assert label_smoothing <= 0.5
 
-    chosen_log_probs = -(1 - label_smoothing) * F.logsigmoid(preference_logits)
+    chosen_log_probs = (1 - label_smoothing) * F.logsigmoid(preference_logits)
     rejected_log_probs = label_smoothing * F.logsigmoid(-preference_logits)
     return chosen_log_probs - rejected_log_probs
 
