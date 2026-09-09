@@ -17,6 +17,8 @@ dependencies = [
     "moviepy>=1.0.3",
     "pygame>=2.6.0",
     "typer>=0.27.1",
+    "transformers>=5.16.1",
+    "tqdm>=4.70.0",
 ]
 
 [tool.uv.sources]
