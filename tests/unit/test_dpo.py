@@ -69,7 +69,7 @@ def test_compute_dpo_loss():
     )
 
     assert loss.shape == ()
-    torch.testing.assert_close(loss, F.logsigmoid(torch.tensor([0.0, 0.0])).mean())
+    assert loss.item() == pytest.approx(0.0)
 
 
 @pytest.mark.parametrize("label_smoothing", [0.0, 0.1, 0.5])
@@ -82,9 +82,9 @@ def test_compute_preference_log_probs(label_smoothing):
 
     assert preference_log_probs.shape == preference_logits.shape
     if label_smoothing == 0.0:
-        expected = -F.logsigmoid(preference_logits)
+        expected = F.logsigmoid(preference_logits)
     elif label_smoothing > 0.0:
-        expected = -(1 - label_smoothing) * F.logsigmoid(
+        expected = (1 - label_smoothing) * F.logsigmoid(
             preference_logits
         ) - label_smoothing * F.logsigmoid(-preference_logits)
     else:
