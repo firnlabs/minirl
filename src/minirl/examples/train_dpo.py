@@ -1,13 +1,16 @@
 """DPO training example."""
 
 import copy
+from pathlib import Path
 
+from matplotlib import pyplot as plt
 import torch
 from tqdm import tqdm
 import transformers
 import typer
 
 from minirl import dpo
+from minirl import experiments
 
 torch.manual_seed(42)
 
@@ -96,6 +99,38 @@ def _compare_completions(policy_model, ref_model, tokenizer) -> None:
             typer.echo(f"  [Policy/After]: {after.strip()}")
 
 
+def _plot_training_progression(
+    metrics_list: list[dpo.TrainStepMetrics], output_dir: Path
+) -> None:
+    steps = list(range(1, len(metrics_list) + 1))
+    losses = [m.loss for m in metrics_list]
+    margins = [m.reward_margin for m in metrics_list]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
+
+    # subplot 1: DPO loss over training steps
+    ax1.plot(steps, losses, color="tab:blue", lw=2, label="DPO Loss")
+    ax1.set_xlabel("Training Step")
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Training Loss Progression")
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+
+    # subplot 2: Reward margin over training steps
+    ax2.plot(steps, margins, color="tab:green", lw=2, label="Reward Margin (rw - rl)")
+    ax2.axhline(
+        1.5, color="gray", linestyle="--", alpha=0.7, label="Target Margin (>1.5)"
+    )
+    ax2.set_xlabel("Training Step")
+    ax2.set_ylabel("Reward Margin")
+    ax2.set_title("Implicit Reward Margin Progression")
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    fig.tight_layout()
+    output_path = output_dir / "dpo_training_curves.png"
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+
+
 def train(
     model_name: str = typer.Option(
         "distilbert/distilgpt2", help="HuggingFace model name or path."
@@ -113,6 +148,7 @@ def train(
             " 'auto' picks MPS if available, otherwise CPU."
         ),
     ),
+    output_dir: Path = typer.Option(Path("runs"), help="Output dir for run results."),
 ) -> None:
     """Runs DPO alignment training on a synthetic preference dataset."""
     if device == "auto":
@@ -136,10 +172,11 @@ def train(
     batch = {k: v.to(device) for k, v in batch.items()}
 
     typer.echo("Starting DPO Training Steps:")
-    metrics = None
+    metrics_list = []
     pbar = tqdm(range(1, num_steps + 1), desc="Training")
     for step in pbar:
         metrics = trainer.train_step(batch)
+        metrics_list.append(metrics)
         pbar.set_postfix(
             loss=f"{metrics.loss:.4f}", acc=f"{metrics.reward_accuracy * 100:.1f}%"
         )
@@ -155,7 +192,8 @@ def train(
             )
 
     # final step assertions
-    assert metrics is not None
+    assert metrics_list
+    metrics = metrics_list[-1]
     assert metrics.reward_margin > 1.5, (
         f"Reward margin failed to expand: {metrics.reward_margin}"
     )
@@ -167,6 +205,11 @@ def train(
 
     # check completions between ref and policy models
     _compare_completions(policy_model, ref_model, tokenizer)
+
+    # generate plots
+    run_dir = experiments.make_run_dir(output_dir, name_prefix="dpo")
+    typer.echo(f"Saving plots to {run_dir}")
+    _plot_training_progression(metrics_list, run_dir)
 
 
 if __name__ == "__main__":
