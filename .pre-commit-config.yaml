@@ -48,7 +48,7 @@ repos:
         pass_filenames: false
       - id: pyrefly-check
         name: Pyrefly type check
-        entry: uv run pyrefly check
+        entry: uv run --group examples pyrefly check
         language: system
         types: [python]
         stages: [pre-commit]

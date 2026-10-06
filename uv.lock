@@ -1180,7 +1180,6 @@ dependencies = [
     { name = "pyrefly-torch-stubs" },
     { name = "torch" },
     { name = "tqdm" },
-    { name = "transformers" },
     { name = "typer" },
 ]
 
@@ -1195,6 +1194,9 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+]
+examples = [
+    { name = "transformers" },
 ]
 notebook = [
     { name = "ipykernel" },
@@ -1213,7 +1215,6 @@ requires-dist = [
     { name = "pyrefly-torch-stubs", editable = "third-party/tensor-shapes/pyrefly-torch-stubs" },
     { name = "torch", specifier = ">=2.13.0" },
     { name = "tqdm", specifier = ">=4.70.0" },
-    { name = "transformers", specifier = ">=5.16.1" },
     { name = "typer", specifier = ">=0.27.1" },
 ]
 
@@ -1229,6 +1230,7 @@ dev = [
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "ruff", specifier = ">=0.15.20" },
 ]
+examples = [{ name = "transformers", specifier = ">=5.16.1" }]
 notebook = [
     { name = "ipykernel", specifier = ">=7.3.0" },
     { name = "matplotlib", specifier = ">=3.11.0" },
