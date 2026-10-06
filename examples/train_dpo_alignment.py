@@ -1,4 +1,4 @@
-"""DPO training example."""
+"""DPO alignment training example."""
 
 import copy
 from pathlib import Path
