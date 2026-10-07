@@ -2,6 +2,7 @@
 
 import copy
 from dataclasses import dataclass
+import math
 
 import pytest
 from shape_extensions import IntVar
@@ -69,27 +70,28 @@ def test_compute_dpo_loss():
     )
 
     assert loss.shape == ()
-    assert loss.item() == pytest.approx(0.0)
+    # When policy matches reference, preference logits are zero (z = 0).
+    # The model predicts equal probability (p = 0.5), so cross-entropy is
+    # -log(0.5) = ln(2) ≈ 0.693147, invariant to label smoothing.
+    assert loss.item() == pytest.approx(math.log(2.0), rel=1e-5)
 
 
 @pytest.mark.parametrize("label_smoothing", [0.0, 0.1, 0.5])
-def test_compute_preference_log_probs(label_smoothing):
+def test_compute_dpo_losses(label_smoothing):
     preference_logits = torch.tensor([-1.0, -2.0])
 
-    preference_log_probs = dpo._compute_preference_log_probs(
+    actual_losses = dpo._compute_dpo_losses(
         preference_logits, label_smoothing=label_smoothing
     )
 
-    assert preference_log_probs.shape == preference_logits.shape
-    if label_smoothing == 0.0:
-        expected = F.logsigmoid(preference_logits)
-    elif label_smoothing > 0.0:
-        expected = (1 - label_smoothing) * F.logsigmoid(
-            preference_logits
-        ) - label_smoothing * F.logsigmoid(-preference_logits)
-    else:
-        raise ValueError("Invalid label_smoothing value")
-    torch.testing.assert_close(preference_log_probs, expected, rtol=1e-5, atol=1e-5)
+    # DPO loss with label smoothing (epsilon) is algebraically equivalent to BCE with
+    # soft targets with y = 1 - epsilon.
+    soft_targets = torch.full_like(preference_logits, 1 - label_smoothing)
+    expected_losses = F.binary_cross_entropy_with_logits(
+        preference_logits, soft_targets, reduction="none"
+    )
+    assert (actual_losses > 0).all(), f"Found negative losses: {actual_losses}"
+    torch.testing.assert_close(actual_losses, expected_losses, rtol=1e-5, atol=1e-5)
 
 
 def test_compute_reward_metrics():

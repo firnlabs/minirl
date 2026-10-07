@@ -58,10 +58,10 @@ def compute_sequence_log_probs[B: IntVar, T: IntVar, V: IntVar](
     return masked_log_probs.sum(dim=-1)
 
 
-def _compute_preference_log_probs[B: IntVar](
+def _compute_dpo_losses[B: IntVar](
     preference_logits: Tensor[[B]], label_smoothing: float = 0.0
 ) -> Tensor[[B]]:
-    """Compute the log probabilities of preferences given preference logits.
+    """Computes the unreduced loss from preference logits with label smoothing.
 
     Args:
         preference_logits: Logits representing the preference between two options.
@@ -70,12 +70,16 @@ def _compute_preference_log_probs[B: IntVar](
     Returns:
         Log probabilities of the preferences.
     """
-    assert label_smoothing >= 0.0
-    assert label_smoothing <= 0.5
+    assert 0.0 <= label_smoothing <= 0.5
 
-    chosen_log_probs = (1 - label_smoothing) * F.logsigmoid(preference_logits)
-    rejected_log_probs = label_smoothing * F.logsigmoid(-preference_logits)
-    return chosen_log_probs - rejected_log_probs
+    if label_smoothing == 0.0:
+        return -F.logsigmoid(preference_logits)
+
+    chosen_log_probs = F.logsigmoid(preference_logits)
+    rejected_log_probs = F.logsigmoid(-preference_logits)
+    return -(
+        (1 - label_smoothing) * chosen_log_probs + label_smoothing * rejected_log_probs
+    )
 
 
 def compute_dpo_loss[B: IntVar](
@@ -103,14 +107,15 @@ def compute_dpo_loss[B: IntVar](
     Returns:
         tuple containing loss, chosen_rewards, and rejected_rewards.
     """
+    # TODO: add error handling in case label_smoothing > 0.5
     policy_log_ratio: Tensor[[B]] = policy_chosen_logps - policy_rejected_logps
     ref_log_ratio: Tensor[[B]] = ref_chosen_logps - ref_rejected_logps
     preference_logits: Tensor[[B]] = beta * (policy_log_ratio - ref_log_ratio)
-    preference_log_probs: Tensor[[B]] = _compute_preference_log_probs(
+    losses: Tensor[[B]] = _compute_dpo_losses(
         preference_logits, label_smoothing=label_smoothing
     )
 
-    return -preference_log_probs.mean()
+    return losses.mean()
 
 
 @dataclass(frozen=True, slots=True)
