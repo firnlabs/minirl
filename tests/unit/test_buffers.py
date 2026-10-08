@@ -1,5 +1,3 @@
-"""Tests for buffers.py."""
-
 import pytest
 import torch
 
@@ -39,8 +37,6 @@ def step(obs_dim) -> buffers.Step:
 
 
 class TestRolloutBuffer:
-    """Tests for RolloutBuffer class."""
-
     def test_add(self, rollout_buffer, step):
         buffer = rollout_buffer
 

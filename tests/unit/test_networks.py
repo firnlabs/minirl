@@ -1,13 +1,9 @@
-"""Tests for networks.py."""
-
 import torch
 
 from minirl import networks
 
 
 class TestDiscreteActor:
-    """Tests for DiscreteActor class."""
-
     def test_forward(self):
         obs_dim = 4
         action_dim = 2
@@ -25,8 +21,6 @@ class TestDiscreteActor:
 
 
 class TestCritic:
-    """Tests for Critic class."""
-
     def test_forward(self):
         obs_dim = 4
         hidden_dim = 32

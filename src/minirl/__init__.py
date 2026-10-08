@@ -1,1 +1,1 @@
-"""{{ project_title }} package."""
+"""Minimal reinforcement learning library in PyTorch."""

@@ -29,6 +29,15 @@ def collect_trajectory_data(
     env: gym.Env,
     policy: networks.DiscreteActor,
 ) -> tuple[list[Tensor], list[float]]:
+    """Collects an episode rollout trajectory under the current policy.
+
+    Args:
+        env: Gymnasium environment.
+        policy: Discrete actor policy network.
+
+    Returns:
+        Tuple of (action log-probabilities, un-discounted rewards).
+    """
     log_probs = []
     rewards = []
     done = False
@@ -56,6 +65,15 @@ def collect_trajectory_data(
 def compute_policy_gradient_loss(
     log_probs: list[Tensor], returns: list[float]
 ) -> Tensor:
+    r"""Computes REINFORCE objective loss $-\sum_t \log \pi(a_t|s_t) G_t$.
+
+    Args:
+        log_probs: Action log-probabilities for each timestep.
+        returns: Discounted cumulative returns for each timestep.
+
+    Returns:
+        Scalar policy gradient loss tensor.
+    """
     losses = []
 
     for log_prob, ret in zip(log_probs, returns, strict=True):
@@ -71,6 +89,17 @@ def train_episode(
     optimizer: optim.Optimizer,
     gamma: float,
 ) -> float:
+    """Executes the REINFORCE training iteration on one episode.
+
+    Args:
+        env: Gymnasium environment.
+        policy: Discrete actor policy.
+        optimizer: Policy parameter optimizer.
+        gamma: Reward discount factor.
+
+    Returns:
+        Undiscounted total episode reward.
+    """
     log_probs, rewards = collect_trajectory_data(env, policy)
     returns = advantages.compute_discounted_returns(rewards, gamma)
     loss = compute_policy_gradient_loss(log_probs, returns)
@@ -99,6 +128,7 @@ def train(
         ),
     ),
 ) -> None:
+    """Trains a REINFORCE policy and saves run artifacts."""
     env = gym.make(_ENV_ID, max_episode_steps=max_episode_steps)
 
     assert isinstance(env.observation_space, gym.spaces.Box)

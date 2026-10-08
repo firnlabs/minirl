@@ -1,5 +1,3 @@
-"""Tests for experiments.py."""
-
 import freezegun
 import pytest
 

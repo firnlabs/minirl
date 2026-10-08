@@ -1,5 +1,3 @@
-"""Tests for evaluation.py."""
-
 from minirl import evaluation
 from minirl.networks import DiscreteActor
 

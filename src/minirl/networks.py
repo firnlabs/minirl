@@ -45,6 +45,14 @@ class DiscreteActor[
     def forward[BatchSize: IntVar](
         self, obs: Tensor[[BatchSize, ObsDim]]
     ) -> Tensor[[BatchSize, NumActions]]:
+        """Computes unnormalized action logits for given observations.
+
+        Args:
+            obs: Observation tensor.
+
+        Returns:
+            Unnormalized action logits.
+        """
         h1: Tensor[[BatchSize, HiddenDim]] = self._tanh1(self._fc1(obs))
         h2: Tensor[[BatchSize, HiddenDim]] = self._tanh2(self._fc2(h1))
         return self._fc3(h2)
@@ -69,6 +77,14 @@ class Critic[ObsDim: IntVar, HiddenDim: IntVar](nn.Module):
     def forward[BatchSize: IntVar](
         self, obs: Tensor[[BatchSize, ObsDim]]
     ) -> Tensor[[BatchSize, 1]]:
+        """Computes scalar state value estimates for given observations.
+
+        Args:
+            obs: Observation tensor.
+
+        Returns:
+            Estimated state values.
+        """
         h1: Tensor[[BatchSize, HiddenDim]] = self._tanh1(self._fc1(obs))
         h2: Tensor[[BatchSize, HiddenDim]] = self._tanh2(self._fc2(h1))
         return self._fc3(h2)
