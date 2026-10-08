@@ -1,5 +1,6 @@
 """Tests for advantages.py."""
 
+import pytest
 import torch
 
 from minirl import advantages
@@ -31,3 +32,21 @@ def test_compute_gae():
 
     assert len(advantages_) == timesteps
     assert len(returns) == timesteps
+
+
+def test_compute_gae_error_device_mismatch():
+    timesteps = 5
+    rewards = torch.rand(timesteps)
+    values = torch.rand(timesteps)
+    last_value = torch.rand(1).squeeze()
+    dones = torch.randint(0, 2, (timesteps,)).bool()
+
+    mismatched_device = "meta"
+    rewards = rewards.to(mismatched_device)
+
+    with pytest.raises(
+        RuntimeError, match=f"Device mismatch: rewards={mismatched_device}"
+    ):
+        advantages.compute_gae(
+            rewards=rewards, values=values, last_value=last_value, dones=dones
+        )

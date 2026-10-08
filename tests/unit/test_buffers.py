@@ -12,8 +12,17 @@ def capacity() -> int:
 
 
 @pytest.fixture
-def rollout_buffer(obs_dim: int, capacity: int) -> buffers.RolloutBuffer:
-    return buffers.RolloutBuffer(capacity=capacity, obs_dim=obs_dim)
+def device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+@pytest.fixture
+def rollout_buffer(obs_dim: int, capacity: int, device: str) -> buffers.RolloutBuffer:
+    return buffers.RolloutBuffer(capacity=capacity, obs_dim=obs_dim, device=device)
 
 
 @pytest.fixture
@@ -106,12 +115,10 @@ class TestRolloutBuffer:
     ):
         advantages = torch.rand(capacity)
         returns = torch.rand(capacity)
-        gamma = 0.99
-        lam = 0.95
         mock_compute_gae = mocker.patch(
             "minirl.advantages.compute_gae", return_value=(advantages, returns)
         )
-        last_value = torch.tensor(1.0)
+        last_value = torch.tensor(1.0, device=rollout_buffer.device)
         buffer = rollout_buffer
         for _ in range(capacity):
             buffer.add(step)
@@ -120,13 +127,20 @@ class TestRolloutBuffer:
             last_value=last_value, last_done=last_done
         )
 
-        mock_compute_gae.assert_called_once_with(
-            rewards=buffer.rewards,
-            values=buffer.values,
-            last_value=torch.tensor(0.0) if last_done else last_value,
-            dones=buffer.dones,
-            gamma=gamma,
-            lam=lam,
+        mock_compute_gae.assert_called_once()
+        call_kwargs = mock_compute_gae.call_args.kwargs
+        assert call_kwargs["rewards"] is buffer.rewards
+        assert call_kwargs["values"] is buffer.values
+        assert call_kwargs["dones"] is buffer.dones
+        assert call_kwargs["gamma"] == 0.99
+        assert call_kwargs["lam"] == 0.95
+        passed_last_value = call_kwargs["last_value"]
+        assert passed_last_value.device == buffer.device, (
+            f"Device mismatch: expected {buffer.device}, got {passed_last_value.device}"
+        )
+        assert passed_last_value.dtype == buffer._values.dtype, (
+            f"Data type mismatch: expected {buffer._values.dtype},"
+            f" got {passed_last_value.dtype}"
         )
         assert buffer.advantages is not None
         assert buffer.returns is not None

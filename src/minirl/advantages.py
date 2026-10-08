@@ -40,7 +40,16 @@ def compute_gae[Timesteps: IntVar](
         tuple of:
         - advantage at every timestep.
         - return at every timestep (for critic training).
+
+    Raises:
+        RuntimeError: If the devices of the input tensors do not match.
     """
+    if not (rewards.device == values.device == last_value.device == dones.device):
+        raise RuntimeError(
+            f"Device mismatch: rewards={rewards.device}, values={values.device},"
+            f" last_value={last_value.device}, dones={dones.device}"
+        )
+
     timesteps = rewards.shape[-1]
     advantages = torch.zeros_like(rewards)
     last_gae = 0  # recursive estimate
