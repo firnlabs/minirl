@@ -51,7 +51,6 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
     ) -> None:
         """Initialize."""
         self._capacity = capacity
-        self._device = device
         self._ptr = 0
 
         # pre-allocated tensor storage
@@ -109,6 +108,10 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
     @property
     def returns(self) -> Tensor[[Capacity]] | None:
         return self._returns
+
+    @property
+    def device(self) -> torch.device:
+        return self._obs.device
 
     def add(self, step: Step[ObsDim, ActionDim]) -> None:
         self._obs[self._ptr] = step.obs.detach()
@@ -177,7 +180,11 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
         gamma: float = 0.99,
         lam: float = 0.95,
     ) -> None:
-        last_value = torch.tensor(0.0) if last_done else last_value
+        last_value = (
+            torch.tensor(0.0, device=self.device, dtype=self._values.dtype)
+            if last_done
+            else last_value
+        )
 
         advantages_, returns = advantages.compute_gae(
             rewards=self._rewards,
