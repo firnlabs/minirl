@@ -83,3 +83,27 @@ def test_compute_ppo_value_loss(old_values_list, clip_eps):
     else:
         exp_loss = pytest.approx(1.8050)
     assert loss.item() == exp_loss
+
+
+@pytest.mark.parametrize("normalize_advantages", [True, False])
+def test_ppo_trainer_advantage_normalization(normalize_advantages: bool):
+    trainer = minirl.ppo.PPOTrainer(
+        env_name="CartPole-v1",
+        num_steps=64,
+        num_epochs=1,
+        batch_size=32,
+        normalize_advantages=normalize_advantages,
+    )
+    # Collect transitions
+    trainer.collect_rollouts()
+    # Compute advantages & returns
+    trainer._buffer.compute_advantages_and_returns(
+        last_value=torch.tensor(0.0),
+        gamma=0.99,
+        lam=0.95,
+        last_done=True,
+    )
+    metrics = trainer.train_epoch(trainer._buffer)
+    assert "approx_kl" in metrics
+    assert "early_stopped" in metrics
+    assert not torch.isnan(torch.tensor(metrics["approx_kl"]))

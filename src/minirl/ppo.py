@@ -141,6 +141,7 @@ class PPOTrainer:
         num_steps: int = 2048,
         num_epochs: int = 10,
         batch_size: int = 64,
+        normalize_advantages: bool = True,
         device: str = "cpu",
     ) -> None:
         self._env_name = env_name
@@ -155,6 +156,7 @@ class PPOTrainer:
         self._max_grad_norm = max_grad_norm
         self._lr_actor = lr_actor
         self._lr_critic = lr_critic
+        self._normalize_advantages = normalize_advantages
 
         if self._env.observation_space.shape is None:
             raise ValueError("Observation space must have a shape")
@@ -293,10 +295,16 @@ class PPOTrainer:
             )
 
             assert minibatch.advantages is not None
+            advantages = minibatch.advantages
+            if self._normalize_advantages:
+                advantages = (advantages - advantages.mean()) / (
+                    advantages.std() + 1e-8
+                )
+
             policy_loss, mean_entropy, clip_fraction = compute_ppo_loss(
                 old_log_probs=minibatch.old_log_probs,
                 new_log_probs=new_log_probs,
-                advantages=minibatch.advantages,
+                advantages=advantages,
                 clip_eps=self._clip_eps,
                 entropy_coef=self._entropy_coef,
                 entropy=entropy,
@@ -437,6 +445,9 @@ def train(
     batch_size: int = typer.Option(
         64, min=1, help="Mini-batch size for SGD optimization."
     ),
+    normalize_advantages: bool = typer.Option(
+        True, help="Whether to normalize advantages per mini-batch."
+    ),
     device: str = typer.Option(
         "cpu", help="Device to run training on (e.g. cpu, cuda)."
     ),
@@ -464,6 +475,7 @@ def train(
         num_steps=num_steps,
         num_epochs=num_epochs,
         batch_size=batch_size,
+        normalize_advantages=normalize_advantages,
         device=device,
     )
 
