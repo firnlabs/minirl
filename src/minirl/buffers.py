@@ -18,8 +18,8 @@ class Step:
     obs: Float[Tensor, "obs_dim"]
     action: Tensor
     reward: float
-    value: Float[Tensor, "1"]
-    log_prob: Float[Tensor, "1"]
+    value: Float[Tensor, ""]
+    log_prob: Float[Tensor, ""]
     done: bool
 
 

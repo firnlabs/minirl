@@ -7,6 +7,7 @@ References:
 
 from dataclasses import dataclass
 from typing import Protocol
+from typing import runtime_checkable
 from typing import TypedDict
 
 from jaxtyping import Bool
@@ -171,6 +172,7 @@ def compute_reward_metrics(
     )
 
 
+@runtime_checkable
 class Tokenizer(Protocol):
     """Protocol for a tokenizer."""
 

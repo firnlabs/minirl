@@ -448,27 +448,7 @@ def train(
         ),
     ),
 ) -> None:
-    """Trains a PPO policy on a Gymnasium environment and saves artifacts.
-
-    Args:
-        env_name: Gymnasium environment identifier.
-        total_timesteps: Total environment steps to train across.
-        hidden_dim: Hidden dimension for actor and critic networks.
-        lr_actor: Learning rate for actor optimizer.
-        lr_critic: Learning rate for critic optimizer.
-        gamma: Discount factor for future rewards.
-        lam: Generalized advantage estimation decay parameter.
-        clip_eps: PPO policy ratio clipping threshold.
-        entropy_coef: Entropy bonus loss coefficient.
-        vf_coef: Value function loss coefficient.
-        target_kl: Target KL divergence threshold for early stopping.
-        max_grad_norm: Maximum gradient norm for clipping.
-        num_steps: Rollout steps collected per iteration.
-        num_epochs: Optimization epochs per iteration.
-        batch_size: Mini-batch size for SGD updates.
-        device: Compute device for networks and tensors.
-        output_dir: Parent directory to save experiment outputs.
-    """
+    """Trains a PPO policy on a Gymnasium environment."""
     trainer = PPOTrainer(
         env_name=env_name,
         hidden_dim=hidden_dim,

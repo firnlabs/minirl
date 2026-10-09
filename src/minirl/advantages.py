@@ -1,5 +1,6 @@
 """Routines for computing advantages."""
 
+from jaxtyping import Bool
 from jaxtyping import Float
 import torch
 from torch import Tensor
@@ -30,7 +31,7 @@ def compute_gae(
     rewards: Float[Tensor, "timesteps"],
     values: Float[Tensor, "timesteps"],
     last_value: Float[Tensor, ""],
-    dones: Float[Tensor, "timesteps"],
+    dones: Bool[Tensor, "timesteps"],
     gamma: float = 0.99,
     lam: float = 0.95,
 ) -> tuple[Float[Tensor, "timesteps"], Float[Tensor, "timesteps"]]:
