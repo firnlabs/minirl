@@ -1,5 +1,3 @@
-"""Tests for advantages.py."""
-
 import pytest
 import torch
 

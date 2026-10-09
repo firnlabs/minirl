@@ -9,7 +9,15 @@ from torch import nn
 
 
 def make_run_dir(output_dir: Path, name_prefix: str = "run") -> Path:
-    """Creates timestamped directory to store experiment files."""
+    """Creates timestamped directory to store experiment files.
+
+    Args:
+        output_dir: Parent output directory.
+        name_prefix: Prefix string for the created directory under output_dir.
+
+    Returns:
+        Path to the newly created directory.
+    """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = output_dir / f"{name_prefix}-{timestamp}"
     run_dir.mkdir(parents=True)
@@ -50,7 +58,7 @@ def save_model(model: nn.Module, output_dir: Path, name: str = "policy") -> Path
     Args:
         model: PyTorch model to save.
         output_dir: Output directory to store model file.
-        name: Model file name without suffix (".pl" will be added to it)
+        name: Model file name without suffix (".pt" will be used as filename suffix).
 
     Returns:
         The path where the model was saved.

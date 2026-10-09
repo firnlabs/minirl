@@ -1,4 +1,4 @@
-"""Integration test for reinforce.py train routine."""
+"""Integration tests for REINFORCE trajectory collection and training CLI."""
 
 import pytest
 import typer

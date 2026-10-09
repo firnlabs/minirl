@@ -1,4 +1,9 @@
-"""PPO training algorithm."""
+"""PPO training algorithm.
+
+References:
+- Schulman et al. (2017). Proximal Policy Optimization Algorithms.
+  https://arxiv.org/abs/1707.06347
+"""
 
 import logging
 from pathlib import Path
@@ -44,6 +49,23 @@ def compute_ppo_loss[BatchSize: IntVar](
     entropy_coef: float = 0.02,
     entropy: Tensor[[BatchSize]] | None = None,
 ) -> tuple[Tensor[[]], Tensor[[]], Tensor[[]]]:
+    r"""Computes PPO clipped surrogate objective and entropy loss.
+
+    Optimizes $L^{CLIP}(\theta) = \hat{\mathbb{E}}_t \left[ \min(r_t(\theta)
+    \hat{A}_t, \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t)
+    \right]$ along with an optional entropy bonus.
+
+    Args:
+        old_log_probs: Action log-probabilities under rollout policy.
+        new_log_probs: Action log-probabilities under current policy parameters.
+        advantages: Generalized advantage estimates.
+        clip_eps: Clipping parameter epsilon.
+        entropy_coef: Coefficient for entropy bonus.
+        entropy: Action distribution entropy per sample.
+
+    Returns:
+        Tuple of (scalar policy loss, mean entropy, clip fraction diagnostic).
+    """
     prob_ratio = torch.exp(new_log_probs - old_log_probs)
 
     surr_obj = prob_ratio * advantages
@@ -74,6 +96,17 @@ def compute_ppo_value_loss[BatchSize: IntVar](
     old_values: Tensor[[BatchSize]] | None = None,
     clip_eps: float | None = None,
 ) -> Tensor[[]]:
+    """Computes mean squared error value loss with optional PPO clipping.
+
+    Args:
+        values: Current critic state-value predictions.
+        target_values: Target returns computed from GAE.
+        old_values: Rollout critic predictions for value clipping.
+        clip_eps: Value function clipping parameter.
+
+    Returns:
+        Scalar value loss tensor.
+    """
     value_loss_unclipped = (values - target_values) ** 2
 
     if old_values is None or clip_eps is None:
@@ -89,6 +122,8 @@ def compute_ppo_value_loss[BatchSize: IntVar](
 
 
 class PPOTrainer:
+    """Proximal Policy Optimization trainer coordinating rollouts and updates."""
+
     def __init__(
         self,
         *,
@@ -171,7 +206,7 @@ class PPOTrainer:
         return self._critic
 
     def collect_rollouts(self) -> float:
-        """Run policy for num_steps, computing rewards and value estimates."""
+        """Collects rollout transitions up to capacity and returns mean return."""
         self._buffer.reset()
 
         completed_episode_returns = []
@@ -221,7 +256,17 @@ class PPOTrainer:
         return mean_return
 
     def train_epoch(self, buffer: buffers.RolloutBuffer) -> dict:
-        """Executes one epoch of SGD optimization over mini-batches."""
+        """Executes one epoch of SGD optimization over mini-batches.
+
+        Args:
+            buffer: Rollout buffer containing stored transitions and advantages.
+
+        Returns:
+            Dictionary containing approx_kl and early_stopped flag.
+
+        Raises:
+            NotImplementedError: If continuous action spaces are used.
+        """
         epoch_kls = []
         early_stopped = False
 
@@ -300,7 +345,11 @@ class PPOTrainer:
         return {"approx_kl": mean_kl, "early_stopped": early_stopped}
 
     def train_iteration(self) -> float:
-        """Runs one complete PPO iteration with rollout + optimization."""
+        """Runs one complete PPO iteration with rollout and optimization.
+
+        Returns:
+            Mean episode return across completed episodes in the rollout.
+        """
         # collect rollouts
         mean_return = self.collect_rollouts()
 
@@ -329,7 +378,17 @@ class PPOTrainer:
         return mean_return
 
     def train(self, total_timesteps: int) -> list:
-        """Main training loop until total_timesteps is reached."""
+        """Main training loop until total_timesteps is reached.
+
+        Args:
+            total_timesteps: Total environment timesteps to train across.
+
+        Returns:
+            List of mean episode returns per iteration.
+
+        Raises:
+            ValueError: If total_timesteps is less than rollout steps.
+        """
         if total_timesteps < self._num_steps:
             raise ValueError(
                 f"total_timesteps ({total_timesteps}) <"
@@ -389,6 +448,27 @@ def train(
         ),
     ),
 ) -> None:
+    """Trains a PPO policy on a Gymnasium environment and saves artifacts.
+
+    Args:
+        env_name: Gymnasium environment identifier.
+        total_timesteps: Total environment steps to train across.
+        hidden_dim: Hidden dimension for actor and critic networks.
+        lr_actor: Learning rate for actor optimizer.
+        lr_critic: Learning rate for critic optimizer.
+        gamma: Discount factor for future rewards.
+        lam: Generalized advantage estimation decay parameter.
+        clip_eps: PPO policy ratio clipping threshold.
+        entropy_coef: Entropy bonus loss coefficient.
+        vf_coef: Value function loss coefficient.
+        target_kl: Target KL divergence threshold for early stopping.
+        max_grad_norm: Maximum gradient norm for clipping.
+        num_steps: Rollout steps collected per iteration.
+        num_epochs: Optimization epochs per iteration.
+        batch_size: Mini-batch size for SGD updates.
+        device: Compute device for networks and tensors.
+        output_dir: Parent directory to save experiment outputs.
+    """
     trainer = PPOTrainer(
         env_name=env_name,
         hidden_dim=hidden_dim,

@@ -1,5 +1,3 @@
-"""Tests for dpo module."""
-
 import copy
 from dataclasses import dataclass
 import math
@@ -312,8 +310,6 @@ def test_concatenated_forward_invalid_batch_size(input_ids, model: DummyModel):
 
 
 class TestDPOTrainer:
-    """Tests for DPOTrainer class."""
-
     def test_train_step(self, model):
         policy_model = model
         ref_model = copy.deepcopy(policy_model)

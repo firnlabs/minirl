@@ -6,9 +6,17 @@ from torch import Tensor
 
 
 def compute_discounted_returns(rewards: list[float], gamma: float) -> list[float]:
+    """Computes discounted cumulative returns backwards along a trajectory.
+
+    Args:
+        rewards: Immediate rewards collected along trajectory.
+        gamma: Reward discount factor.
+
+    Returns:
+        List of discounted cumulative return per timestep.
+    """
     returns = []
 
-    # Compute returns from the end of the trajectory going back
     current_return = 0.0
     for r in reversed(rewards):
         current_return = r + current_return * gamma

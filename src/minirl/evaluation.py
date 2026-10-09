@@ -13,7 +13,14 @@ def record_simulation_video(
     video_folder: Path,
     max_steps: int = 100,
 ) -> None:
-    """Runs a single simulation episode using the trained policy and records video."""
+    """Runs a single simulation episode using the trained policy and records video.
+
+    Args:
+        env_id: Gymnasium environment identifier.
+        policy: Policy network generating action logits.
+        video_folder: Directory to store the recorded simulation video.
+        max_steps: Maximum number of steps before terminating the episode.
+    """
     eval_env = gym.make(env_id, render_mode="rgb_array", max_episode_steps=max_steps)
 
     # NOTE: RecordVideo will assume `video_folder` does not exist and will create it

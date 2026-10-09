@@ -366,6 +366,14 @@ class DPOTrainer:
             p.requires_grad = False
 
     def train_step(self, batch: dict[str, Tensor]) -> TrainStepMetrics:
+        """Executes one DPO optimization step on a collated preference batch.
+
+        Args:
+            batch: Collated batch containing token sequences and attention masks.
+
+        Returns:
+            Per training step loss and reward metrics.
+        """
         with torch.no_grad():
             ref_chosen_logps, ref_rejected_logps = concatenated_forward(
                 self._ref_model, batch

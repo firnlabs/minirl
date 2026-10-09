@@ -1,3 +1,5 @@
+"""Integration tests for PPO rollout collection and training CLI."""
+
 import pytest
 import typer
 from typer.testing import CliRunner
@@ -23,8 +25,6 @@ def ppo_trainer() -> ppo.PPOTrainer:
 
 
 class TestPPOTrainer:
-    """Integration test for PPOTrainer."""
-
     def test_train(self, ppo_trainer):
         total_timesteps = 32
 

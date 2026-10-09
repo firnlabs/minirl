@@ -1,5 +1,3 @@
-"""Unit tests for ppo.py."""
-
 import gymnasium as gym
 import pytest
 import torch

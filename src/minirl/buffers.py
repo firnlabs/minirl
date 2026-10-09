@@ -114,6 +114,11 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
         return self._obs.device
 
     def add(self, step: Step[ObsDim, ActionDim]) -> None:
+        """Appends a transition step to the buffer.
+
+        Args:
+            step: Single environment transition step to record.
+        """
         self._obs[self._ptr] = step.obs.detach()
         self._actions[self._ptr] = step.action.detach()
         self._rewards[self._ptr] = step.reward
@@ -167,9 +172,11 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
             )
 
     def is_full(self) -> bool:
+        """Returns True if the buffer has reached maximum capacity."""
         return self._ptr >= self._capacity
 
     def reset(self) -> None:
+        """Resets the buffer insertion pointer to zero."""
         self._ptr = 0
 
     def compute_advantages_and_returns(
@@ -180,6 +187,14 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
         gamma: float = 0.99,
         lam: float = 0.95,
     ) -> None:
+        """Computes GAE advantages and target returns across stored rollouts.
+
+        Args:
+            last_value: Critic value estimate for the observation at step T.
+            last_done: Terminal flag of the final step.
+            gamma: Discount factor.
+            lam: Generalized Advantage Estimation decay factor (lambda).
+        """
         last_value = (
             torch.tensor(0.0, device=self.device, dtype=self._values.dtype)
             if last_done
