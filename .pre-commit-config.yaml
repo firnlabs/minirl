@@ -1,5 +1,3 @@
-exclude: ^third-party/
-
 repos:
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.16.5
@@ -46,9 +44,9 @@ repos:
         types: [python]
         stages: [pre-commit]
         pass_filenames: false
-      - id: pyrefly-check
-        name: Pyrefly type check
-        entry: uv run --group examples pyrefly check
+      - id: ty-check
+        name: ty type check
+        entry: uv run ty check
         language: system
         types: [python]
         stages: [pre-commit]

@@ -2,8 +2,9 @@ import copy
 from dataclasses import dataclass
 import math
 
+from jaxtyping import Float
+from jaxtyping import Int
 import pytest
-from shape_extensions import IntVar
 import torch
 from torch import nn
 from torch import optim
@@ -250,14 +251,14 @@ class DummyModel(nn.Module):
         self._embedding = nn.Embedding(vocab_size, hidden_dim)
         self._linear = nn.Linear(hidden_dim, vocab_size)
 
-    def forward[B: IntVar, T: IntVar, V: IntVar](
+    def forward(
         self,
-        input_ids: Tensor[[B, T]],
-        attention_mask: Tensor[[B, T]] | None = None,
+        input_ids: Int[Tensor, "batch_size seq_len"],
+        attention_mask: Int[Tensor, "batch_size seq_len"] | None = None,
     ) -> DummyModelOutput:
         _ = attention_mask  # unused
         emb = self._embedding(input_ids)
-        logits: Tensor[[B, T, V]] = self._linear(emb)
+        logits: Float[Tensor, "batch_size seq_len vocab_size"] = self._linear(emb)
         return DummyModelOutput(logits=logits)
 
 

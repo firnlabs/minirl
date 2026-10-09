@@ -1,6 +1,6 @@
 """Routines for computing advantages."""
 
-from shape_extensions import IntVar
+from jaxtyping import Float
 import torch
 from torch import Tensor
 
@@ -25,15 +25,15 @@ def compute_discounted_returns(rewards: list[float], gamma: float) -> list[float
     return returns[::-1]
 
 
-def compute_gae[Timesteps: IntVar](
+def compute_gae(
     *,
-    rewards: Tensor[[Timesteps]],
-    values: Tensor[[Timesteps]],
-    last_value: Tensor[[]],
-    dones: Tensor[[Timesteps]],
+    rewards: Float[Tensor, "timesteps"],
+    values: Float[Tensor, "timesteps"],
+    last_value: Float[Tensor, ""],
+    dones: Float[Tensor, "timesteps"],
     gamma: float = 0.99,
     lam: float = 0.95,
-) -> tuple[Tensor[[Timesteps]], Tensor[[Timesteps]]]:
+) -> tuple[Float[Tensor, "timesteps"], Float[Tensor, "timesteps"]]:
     """Computes generalized advantage estimation (GAE).
 
     Args:
