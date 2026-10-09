@@ -35,29 +35,27 @@ def compute_sequence_log_probs(
     Returns:
         Log probabilities of the sequences.
     """
-    shift_logits: Float[Tensor, "batch_size seq_len_minus_1 vocab_size"] = logits[
-        ..., :-1, :
-    ]
-    shift_labels: Int[Tensor, "batch_size seq_len_minus_1"] = labels[..., 1:]
+    shift_logits: Float[Tensor, "batch_size seq_len-1 vocab_size"] = logits[..., :-1, :]
+    shift_labels: Int[Tensor, "batch_size seq_len-1"] = labels[..., 1:]
 
     # Safely handle potential -100 ignore_index in labels
     clamped_labels = torch.clamp(shift_labels, min=0)
 
-    log_probs: Float[Tensor, "batch_size seq_len_minus_1 vocab_size"] = F.log_softmax(
+    log_probs: Float[Tensor, "batch_size seq_len-1 vocab_size"] = F.log_softmax(
         shift_logits, dim=-1
     )
-    select_log_probs: Float[Tensor, "batch_size seq_len_minus_1"] = torch.gather(
+    select_log_probs: Float[Tensor, "batch_size seq_len-1"] = torch.gather(
         log_probs, dim=-1, index=clamped_labels[..., None]
     ).squeeze(-1)
 
     if prompt_mask is None:
         prompt_mask = torch.zeros_like(attention_mask)
 
-    mask: Bool[Tensor, "batch_size seq_len_minus_1"] = (
-        attention_mask[..., 1:] == 1
-    ) * (prompt_mask[..., 1:] == 0)
+    mask: Bool[Tensor, "batch_size seq_len-1"] = (attention_mask[..., 1:] == 1) * (
+        prompt_mask[..., 1:] == 0
+    )
 
-    masked_log_probs: Float[Tensor, "batch_size seq_len_minus_1"] = (
+    masked_log_probs: Float[Tensor, "batch_size seq_len-1"] = (
         select_log_probs * mask.to(select_log_probs.dtype)
     )
 
