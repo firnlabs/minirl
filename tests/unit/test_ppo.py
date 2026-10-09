@@ -83,3 +83,50 @@ def test_compute_ppo_value_loss(old_values_list, clip_eps):
     else:
         exp_loss = pytest.approx(1.8050)
     assert loss.item() == exp_loss
+
+
+@pytest.mark.parametrize("normalize_advantages", [True, False])
+def test_ppo_trainer_advantage_normalization(normalize_advantages):
+    trainer = minirl.ppo.PPOTrainer(
+        env_name="CartPole-v1",
+        num_steps=64,
+        num_epochs=1,
+        batch_size=32,
+        normalize_advantages=normalize_advantages,
+    )
+    # Collect transitions
+    trainer.collect_rollouts()
+    # Compute advantages & returns
+    trainer._buffer.compute_advantages_and_returns(
+        last_value=torch.tensor(0.0),
+        gamma=0.99,
+        lam=0.95,
+        last_done=True,
+    )
+    metrics = trainer.train_epoch(trainer._buffer)
+    assert "approx_kl" in metrics
+    assert "early_stopped" in metrics
+    assert not torch.isnan(torch.tensor(metrics["approx_kl"]))
+
+
+@pytest.mark.parametrize(
+    "advantages",
+    [
+        [1.0, 5.0, 10.0, 20.0],
+        [1.0, 0.0],
+    ],
+)
+def test_normalize_advantages(advantages):
+    raw_adv = torch.tensor(advantages, dtype=torch.float32)
+    norm_adv = minirl.ppo.normalize_advantages(raw_adv)
+    torch.testing.assert_close(norm_adv.mean(), torch.tensor(0.0), rtol=1e-5, atol=1e-5)
+    torch.testing.assert_close(norm_adv.std(), torch.tensor(1.0), rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.parametrize("advantages", [[5.0], []])
+def test_normalize_advantages_error_invalid_batch_size(advantages):
+    raw_adv = torch.tensor(advantages, dtype=torch.float32)
+    with pytest.raises(
+        ValueError, match="Cannot normalize advantages with batch size <= 1"
+    ):
+        minirl.ppo.normalize_advantages(raw_adv)
