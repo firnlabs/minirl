@@ -40,6 +40,27 @@ def _parse_action_space(action_space: gym.Space) -> tuple[bool, int, int]:
     return is_discrete, num_actions, action_dim
 
 
+def normalize_advantages(
+    advantages: Float[Tensor, "batch_size"], eps: float = 1e-8
+) -> Float[Tensor, "batch_size"]:
+    """Normalizes advantages via z-score standardization (zero mean, unit variance).
+
+    Args:
+        advantages: Batch of unnormalized advantage estimates.
+        eps: Small constant added to denominator to avoid division by zero.
+
+    Returns:
+        Standardized advantages.
+
+    Raises:
+        ValueError: If the batch size is <= 1.
+    """
+    if advantages.numel() <= 1:
+        raise ValueError("Cannot normalize advantages with batch size <= 1")
+
+    return (advantages - advantages.mean()) / (advantages.std() + eps)
+
+
 def compute_ppo_loss(
     *,
     old_log_probs: Float[Tensor, "batch_size"],
@@ -295,11 +316,11 @@ class PPOTrainer:
             )
 
             assert minibatch.advantages is not None
-            advantages = minibatch.advantages
-            if self._normalize_advantages:
-                advantages = (advantages - advantages.mean()) / (
-                    advantages.std() + 1e-8
-                )
+            advantages = (
+                normalize_advantages(minibatch.advantages)
+                if self._normalize_advantages
+                else minibatch.advantages
+            )
 
             policy_loss, mean_entropy, clip_fraction = compute_ppo_loss(
                 old_log_probs=minibatch.old_log_probs,
