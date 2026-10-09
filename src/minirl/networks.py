@@ -49,8 +49,8 @@ class DiscreteActor(nn.Module):
         Returns:
             Unnormalized action logits.
         """
-        h1 = self._tanh1(self._fc1(obs))
-        h2 = self._tanh2(self._fc2(h1))
+        h1: Float[Tensor, "batch_size hidden_dim"] = self._tanh1(self._fc1(obs))
+        h2: Float[Tensor, "batch_size hidden_dim"] = self._tanh2(self._fc2(h1))
         return self._fc3(h2)
 
 
@@ -81,6 +81,6 @@ class Critic(nn.Module):
         Returns:
             Estimated state values.
         """
-        h1 = self._tanh1(self._fc1(obs))
-        h2 = self._tanh2(self._fc2(h1))
+        h1: Float[Tensor, "batch_size hidden_dim"] = self._tanh1(self._fc1(obs))
+        h2: Float[Tensor, "batch_size hidden_dim"] = self._tanh2(self._fc2(h1))
         return self._fc3(h2)
