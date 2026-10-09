@@ -30,8 +30,8 @@ def step(obs_dim) -> buffers.Step:
         obs=torch.rand(obs_dim) + eps,
         action=torch.randint(low=1, high=2, size=(1,)),  # non-zero discrete action
         reward=1.0,
-        value=torch.rand(1) + eps,
-        log_prob=torch.rand(1) + eps,
+        value=torch.rand(1).squeeze() + eps,
+        log_prob=torch.rand(1).squeeze() + eps,
         done=True,
     )
 

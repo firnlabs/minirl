@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 import dataclasses
 
-from shape_extensions import Int
-from shape_extensions import IntVar
+from jaxtyping import Bool
+from jaxtyping import Float
 import torch
 from torch import Tensor
 
@@ -12,40 +12,40 @@ from minirl import advantages
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class Step[ObsDim: IntVar, ActionDim: IntVar]:
+class Step:
     """Single transition step within a rollout trajectory."""
 
-    obs: Tensor[[ObsDim]]
-    action: Tensor[[ActionDim]]
+    obs: Float[Tensor, "obs_dim"]
+    action: Tensor
     reward: float
-    value: Tensor[[1]]
-    log_prob: Tensor[[1]]
+    value: Float[Tensor, ""]
+    log_prob: Float[Tensor, ""]
     done: bool
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class Minibatch[BatchSize: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
+class Minibatch:
     """Minibatch of rollout data."""
 
-    obs: Tensor[[BatchSize, ObsDim]]
-    actions: Tensor[[BatchSize]] | Tensor[[BatchSize, ActionDim]]
-    rewards: Tensor[[BatchSize]]
-    values: Tensor[[BatchSize]]
-    old_log_probs: Tensor[[BatchSize]]
-    dones: Tensor[[BatchSize]]
-    advantages: Tensor[[BatchSize]] | None
-    returns: Tensor[[BatchSize]] | None
+    obs: Float[Tensor, "batch_size obs_dim"]
+    actions: Tensor
+    rewards: Float[Tensor, "batch_size"]
+    values: Float[Tensor, "batch_size"]
+    old_log_probs: Float[Tensor, "batch_size"]
+    dones: Bool[Tensor, "batch_size"]
+    advantages: Float[Tensor, "batch_size"] | None
+    returns: Float[Tensor, "batch_size"] | None
 
 
-class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
+class RolloutBuffer:
     """Buffer for storing simulation rollouts."""
 
     def __init__(
         self,
         *,
-        capacity: Int[Capacity],
-        obs_dim: Int[ObsDim],
-        action_dim: Int[ActionDim] | None = None,
+        capacity: int,
+        obs_dim: int,
+        action_dim: int | None = None,
         is_discrete: bool = True,
         device: str = "cpu",
     ) -> None:
@@ -60,6 +60,10 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
             action_dtype = torch.long
             action_space = (capacity,)
         else:
+            if action_dim is None:
+                raise ValueError(
+                    "action_dim must be provided when is_discrete is False"
+                )
             action_dtype = torch.float32
             action_space = (capacity, action_dim)
 
@@ -74,46 +78,46 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
         self._returns = None
 
     @property
-    def capacity(self) -> Int[Capacity]:
+    def capacity(self) -> int:
         return self._capacity
 
     @property
-    def obs(self) -> Tensor[[Capacity, ObsDim]]:
+    def obs(self) -> Float[Tensor, "capacity obs_dim"]:
         return self._obs
 
     @property
-    def actions(self) -> Tensor[[Capacity]] | Tensor[[Capacity, ActionDim]]:
+    def actions(self) -> Tensor:
         return self._actions
 
     @property
-    def rewards(self) -> Tensor[[Capacity]]:
+    def rewards(self) -> Float[Tensor, "capacity"]:
         return self._rewards
 
     @property
-    def values(self) -> Tensor[[Capacity]]:
+    def values(self) -> Float[Tensor, "capacity"]:
         return self._values
 
     @property
-    def log_probs(self) -> Tensor[[Capacity]]:
+    def log_probs(self) -> Float[Tensor, "capacity"]:
         return self._log_probs
 
     @property
-    def dones(self) -> Tensor[[Capacity]]:
+    def dones(self) -> Bool[Tensor, "capacity"]:
         return self._dones
 
     @property
-    def advantages(self) -> Tensor[[Capacity]] | None:
+    def advantages(self) -> Float[Tensor, "capacity"] | None:
         return self._advantages
 
     @property
-    def returns(self) -> Tensor[[Capacity]] | None:
+    def returns(self) -> Float[Tensor, "capacity"] | None:
         return self._returns
 
     @property
     def device(self) -> torch.device:
         return self._obs.device
 
-    def add(self, step: Step[ObsDim, ActionDim]) -> None:
+    def add(self, step: Step) -> None:
         """Appends a transition step to the buffer.
 
         Args:
@@ -128,9 +132,7 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
 
         self._ptr += 1
 
-    def get_batches[BatchSize: IntVar](
-        self, batch_size: Int[BatchSize]
-    ) -> Iterator[Minibatch[BatchSize, ObsDim, ActionDim]]:
+    def get_batches(self, batch_size: int) -> Iterator[Minibatch]:
         """Generates minibatches of rollout data.
 
         Args:
@@ -181,7 +183,7 @@ class RolloutBuffer[Capacity: IntVar, ObsDim: IntVar, ActionDim: IntVar]:
 
     def compute_advantages_and_returns(
         self,
-        last_value: Tensor[[]],
+        last_value: Float[Tensor, ""],
         last_done: bool,
         *,
         gamma: float = 0.99,

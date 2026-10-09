@@ -8,21 +8,16 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "pyrefly>=1.2.0",
-    "torch>=2.13.0",
-    "pyrefly-torch-stubs",
-    "pyrefly-shape-extensions",
+    "beartype>=0.22.9",
     "gymnasium>=1.3.0",
+    "jaxtyping>=0.2.36",
     "matplotlib>=3.11.0",
     "moviepy>=1.0.3",
     "pygame>=2.6.0",
-    "typer>=0.27.1",
+    "torch>=2.13.0",
     "tqdm>=4.70.0",
+    "typer>=0.27.1",
 ]
-
-[tool.uv.sources]
-pyrefly-torch-stubs= { path = "./third-party/tensor-shapes/pyrefly-torch-stubs", editable = true }
-pyrefly-shape-extensions = { path = "./third-party/tensor-shapes/pyrefly-shape-extensions", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.11.26,<0.12.0"]
@@ -37,7 +32,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
     "ruff>=0.15.20",
-    "pyrefly>=1.1.0",
+    "ty>=0.0.85",
     "freezegun>=1.5.5",
 ]
 examples = [
@@ -52,7 +47,7 @@ notebook = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=minirl --cov-report=term-missing --cov-report=html --cov-report=json --import-mode=importlib"
+addopts = "--cov=minirl --cov-report=term-missing --cov-report=html --cov-report=json --import-mode=importlib --jaxtyping-packages=minirl,beartype.beartype"
 pythonpath = ["."]
 
 [tool.coverage.run]
@@ -89,6 +84,8 @@ ignore = [
     "D1",    # Ignore missing docstrings
     "D203",  # Conflict with D211
     "B008",  # Function call in argument defaults (Typer Option pattern)
+    "F722",  # Forward annotation syntax error (jaxtyping dimension specs)
+    "F821",  # Undefined name (jaxtyping dimension specs)
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -109,21 +106,11 @@ skip-checking-private-functions = true
 check-return-types = false
 check-yield-types = false
 
-[tool.pyrefly]
+[tool.ty.environment]
 python-version = "3.12"
-project-excludes = [
-    "third-party/**",
-]
-search_path = [
-    "./third-party/tensor-shapes/pyrefly-torch-stubs",
-    "./third-party/tensor-shapes/pyrefly-shape-extensions",
-]
 
-[tool.pyrefly.errors]
-bad-override = false
-missing-attribute = false
-unused-ignore = true
-unused-type-ignore = true
+[tool.ty.src]
+include = ["src", "tests"]
 
 [tool.coverage-threshold]
 line_coverage_min = 80

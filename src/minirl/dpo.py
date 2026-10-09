@@ -7,21 +7,24 @@ References:
 
 from dataclasses import dataclass
 from typing import Protocol
+from typing import runtime_checkable
 from typing import TypedDict
 
-from shape_extensions import IntVar
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Int
 import torch
 from torch import nn
 from torch import Tensor
 from torch.nn import functional as F
 
 
-def compute_sequence_log_probs[B: IntVar, T: IntVar, V: IntVar](
-    logits: Tensor[[B, T, V]],
-    labels: Tensor[[B, T]],
-    attention_mask: Tensor[[B, T]],
-    prompt_mask: Tensor[[B, T]] | None = None,
-) -> Tensor[[B]]:
+def compute_sequence_log_probs(
+    logits: Float[Tensor, "batch_size seq_len vocab_size"],
+    labels: Int[Tensor, "batch_size seq_len"],
+    attention_mask: Int[Tensor, "batch_size seq_len"],
+    prompt_mask: Int[Tensor, "batch_size seq_len"] | None = None,
+) -> Float[Tensor, "batch_size"]:
     """Compute the log probabilities of sequences given logits and labels.
 
     Args:
@@ -33,34 +36,36 @@ def compute_sequence_log_probs[B: IntVar, T: IntVar, V: IntVar](
     Returns:
         Log probabilities of the sequences.
     """
-    shift_logits: Tensor[[B, T - 1, V]] = logits[..., :-1, :]
-    shift_labels: Tensor[[B, T - 1]] = labels[..., 1:]
+    shift_logits: Float[Tensor, "batch_size seq_len-1 vocab_size"] = logits[..., :-1, :]
+    shift_labels: Int[Tensor, "batch_size seq_len-1"] = labels[..., 1:]
 
     # Safely handle potential -100 ignore_index in labels
     clamped_labels = torch.clamp(shift_labels, min=0)
 
-    log_probs: Tensor[[B, T - 1, V]] = F.log_softmax(shift_logits, dim=-1)
-    select_log_probs: Tensor[[B, T - 1]] = torch.gather(
+    log_probs: Float[Tensor, "batch_size seq_len-1 vocab_size"] = F.log_softmax(
+        shift_logits, dim=-1
+    )
+    select_log_probs: Float[Tensor, "batch_size seq_len-1"] = torch.gather(
         log_probs, dim=-1, index=clamped_labels[..., None]
     ).squeeze(-1)
 
     if prompt_mask is None:
         prompt_mask = torch.zeros_like(attention_mask)
 
-    mask: Tensor[[B, T - 1]] = (attention_mask[..., 1:] == 1) * (
+    mask: Bool[Tensor, "batch_size seq_len-1"] = (attention_mask[..., 1:] == 1) * (
         prompt_mask[..., 1:] == 0
     )
 
-    masked_log_probs: Tensor[[B, T - 1]] = select_log_probs * mask.to(
-        select_log_probs.dtype
+    masked_log_probs: Float[Tensor, "batch_size seq_len-1"] = (
+        select_log_probs * mask.to(select_log_probs.dtype)
     )
 
     return masked_log_probs.sum(dim=-1)
 
 
-def _compute_dpo_losses[B: IntVar](
-    preference_logits: Tensor[[B]], label_smoothing: float = 0.0
-) -> Tensor[[B]]:
+def _compute_dpo_losses(
+    preference_logits: Float[Tensor, "batch_size"], label_smoothing: float = 0.0
+) -> Float[Tensor, "batch_size"]:
     """Computes the unreduced loss from preference logits with label smoothing.
 
     Args:
@@ -82,14 +87,14 @@ def _compute_dpo_losses[B: IntVar](
     )
 
 
-def compute_dpo_loss[B: IntVar](
-    policy_chosen_logps: Tensor[[B]],
-    policy_rejected_logps: Tensor[[B]],
-    ref_chosen_logps: Tensor[[B]],
-    ref_rejected_logps: Tensor[[B]],
+def compute_dpo_loss(
+    policy_chosen_logps: Float[Tensor, "batch_size"],
+    policy_rejected_logps: Float[Tensor, "batch_size"],
+    ref_chosen_logps: Float[Tensor, "batch_size"],
+    ref_rejected_logps: Float[Tensor, "batch_size"],
     beta: float = 0.1,
     label_smoothing: float = 0.0,
-) -> Tensor[[]]:
+) -> Float[Tensor, ""]:
     """Computes DPO loss and metrics.
 
     Args:
@@ -108,10 +113,14 @@ def compute_dpo_loss[B: IntVar](
         tuple containing loss, chosen_rewards, and rejected_rewards.
     """
     # TODO: add error handling in case label_smoothing > 0.5
-    policy_log_ratio: Tensor[[B]] = policy_chosen_logps - policy_rejected_logps
-    ref_log_ratio: Tensor[[B]] = ref_chosen_logps - ref_rejected_logps
-    preference_logits: Tensor[[B]] = beta * (policy_log_ratio - ref_log_ratio)
-    losses: Tensor[[B]] = _compute_dpo_losses(
+    policy_log_ratio: Float[Tensor, "batch_size"] = (
+        policy_chosen_logps - policy_rejected_logps
+    )
+    ref_log_ratio: Float[Tensor, "batch_size"] = ref_chosen_logps - ref_rejected_logps
+    preference_logits: Float[Tensor, "batch_size"] = beta * (
+        policy_log_ratio - ref_log_ratio
+    )
+    losses: Float[Tensor, "batch_size"] = _compute_dpo_losses(
         preference_logits, label_smoothing=label_smoothing
     )
 
@@ -119,20 +128,20 @@ def compute_dpo_loss[B: IntVar](
 
 
 @dataclass(frozen=True, slots=True)
-class DPORewardMetrics[B: IntVar]:
+class DPORewardMetrics:
     """Dataclass to hold DPO reward metrics."""
 
-    chosen_rewards: Tensor[[B]]
-    rejected_rewards: Tensor[[B]]
-    reward_margin: Tensor[[B]]
+    chosen_rewards: Float[Tensor, "batch_size"]
+    rejected_rewards: Float[Tensor, "batch_size"]
+    reward_margin: Float[Tensor, "batch_size"]
     reward_accuracy: float
 
 
-def compute_reward_metrics[B: IntVar](
-    policy_chosen_logps: Tensor[[B]],
-    policy_rejected_logps: Tensor[[B]],
-    ref_chosen_logps: Tensor[[B]],
-    ref_rejected_logps: Tensor[[B]],
+def compute_reward_metrics(
+    policy_chosen_logps: Float[Tensor, "batch_size"],
+    policy_rejected_logps: Float[Tensor, "batch_size"],
+    ref_chosen_logps: Float[Tensor, "batch_size"],
+    ref_rejected_logps: Float[Tensor, "batch_size"],
     beta: float = 0.1,
 ) -> DPORewardMetrics:
     """Computes DPO reward metrics.
@@ -163,6 +172,7 @@ def compute_reward_metrics[B: IntVar](
     )
 
 
+@runtime_checkable
 class Tokenizer(Protocol):
     """Protocol for a tokenizer."""
 
@@ -291,10 +301,10 @@ def collate_batch(
     }
 
 
-def concatenated_forward[B: IntVar](
+def concatenated_forward(
     model: nn.Module,
     batch: dict[str, Tensor],
-) -> tuple[Tensor[[B]], Tensor[[B]]]:
+) -> tuple[Float[Tensor, "batch_size"], Float[Tensor, "batch_size"]]:
     """Generates chosen and rejected log probabilities from a preference batch.
 
     Args:

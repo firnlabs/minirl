@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -63,7 +64,7 @@ def collect_trajectory_data(
 
 
 def compute_policy_gradient_loss(
-    log_probs: list[Tensor], returns: list[float]
+    log_probs: list[Tensor], returns: Sequence[float | int]
 ) -> Tensor:
     r"""Computes REINFORCE objective loss $-\sum_t \log \pi(a_t|s_t) G_t$.
 

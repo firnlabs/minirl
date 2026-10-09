@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 import gymnasium as gym
-from shape_extensions import IntVar
+from jaxtyping import Float
 import torch
 from torch import distributions
 from torch import nn
@@ -40,15 +40,15 @@ def _parse_action_space(action_space: gym.Space) -> tuple[bool, int, int]:
     return is_discrete, num_actions, action_dim
 
 
-def compute_ppo_loss[BatchSize: IntVar](
+def compute_ppo_loss(
     *,
-    old_log_probs: Tensor[[BatchSize]],
-    new_log_probs: Tensor[[BatchSize]],
-    advantages: Tensor[[BatchSize]],
+    old_log_probs: Float[Tensor, "batch_size"],
+    new_log_probs: Float[Tensor, "batch_size"],
+    advantages: Float[Tensor, "batch_size"],
     clip_eps: float = 0.2,
     entropy_coef: float = 0.02,
-    entropy: Tensor[[BatchSize]] | None = None,
-) -> tuple[Tensor[[]], Tensor[[]], Tensor[[]]]:
+    entropy: Float[Tensor, "batch_size"] | None = None,
+) -> tuple[Float[Tensor, ""], Float[Tensor, ""], Float[Tensor, ""]]:
     r"""Computes PPO clipped surrogate objective and entropy loss.
 
     Optimizes $L^{CLIP}(\theta) = \hat{\mathbb{E}}_t \left[ \min(r_t(\theta)
@@ -89,13 +89,13 @@ def compute_ppo_loss[BatchSize: IntVar](
     return policy_loss, mean_entropy, clip_fraction
 
 
-def compute_ppo_value_loss[BatchSize: IntVar](
+def compute_ppo_value_loss(
     *,
-    values: Tensor[[BatchSize]],
-    target_values: Tensor[[BatchSize]],
-    old_values: Tensor[[BatchSize]] | None = None,
+    values: Float[Tensor, "batch_size"],
+    target_values: Float[Tensor, "batch_size"],
+    old_values: Float[Tensor, "batch_size"] | None = None,
     clip_eps: float | None = None,
-) -> Tensor[[]]:
+) -> Float[Tensor, ""]:
     """Computes mean squared error value loss with optional PPO clipping.
 
     Args:
@@ -448,27 +448,7 @@ def train(
         ),
     ),
 ) -> None:
-    """Trains a PPO policy on a Gymnasium environment and saves artifacts.
-
-    Args:
-        env_name: Gymnasium environment identifier.
-        total_timesteps: Total environment steps to train across.
-        hidden_dim: Hidden dimension for actor and critic networks.
-        lr_actor: Learning rate for actor optimizer.
-        lr_critic: Learning rate for critic optimizer.
-        gamma: Discount factor for future rewards.
-        lam: Generalized advantage estimation decay parameter.
-        clip_eps: PPO policy ratio clipping threshold.
-        entropy_coef: Entropy bonus loss coefficient.
-        vf_coef: Value function loss coefficient.
-        target_kl: Target KL divergence threshold for early stopping.
-        max_grad_norm: Maximum gradient norm for clipping.
-        num_steps: Rollout steps collected per iteration.
-        num_epochs: Optimization epochs per iteration.
-        batch_size: Mini-batch size for SGD updates.
-        device: Compute device for networks and tensors.
-        output_dir: Parent directory to save experiment outputs.
-    """
+    """Trains a PPO policy on a Gymnasium environment."""
     trainer = PPOTrainer(
         env_name=env_name,
         hidden_dim=hidden_dim,

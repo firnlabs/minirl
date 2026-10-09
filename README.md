@@ -90,10 +90,10 @@ Check code formatting and linting:
 uv run ruff check && uv run ruff format --check
 ```
 
-Validate static tensor shape annotations:
+Validate static type annotations:
 
 ```bash
-uv run pyrefly check
+uv run ty check
 ```
 
 ---
@@ -103,7 +103,7 @@ uv run pyrefly check
 Contributions, feedback, and bug reports are welcome. To contribute:
 
 1. Fork the repository and create a feature branch (e.g., `git checkout -b feat/my-feature`).
-2. Verify all tests pass, linting succeeds, and types check (`uv run pytest && uv run ruff check && uv run pyrefly check`).
+2. Verify all tests pass, linting succeeds, and types check (`uv run pytest && uv run ruff check && uv run ty check`).
 3. Submit a pull request describing the rationale, changes made, and invariants preserved.
 
 ---

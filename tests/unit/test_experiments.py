@@ -21,9 +21,14 @@ def test_make_run_dir(name_prefix, tmp_path):
 def test_save_reward_plot(name, tmp_path):
     rewards = [10.0, 20.0, 30.0]
 
-    out_path = experiments.save_reward_plot(rewards, tmp_path, name)
+    if name is None:
+        out_path = experiments.save_reward_plot(rewards, tmp_path)
+        exp_path = tmp_path / "rewards_plot.png"
 
-    exp_path = tmp_path / f"{name}.png"
+    else:
+        out_path = experiments.save_reward_plot(rewards, tmp_path, name)
+        exp_path = tmp_path / f"{name}.png"
+
     assert out_path == exp_path
     assert out_path.exists()
 

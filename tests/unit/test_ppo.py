@@ -41,7 +41,7 @@ def test_compute_ppo_loss():
     advantages = torch.tensor([2.0, -1.0])
     clip_eps = 0.2
     entropy_coef = 0.01
-    entropy = torch.tensor(0.5)
+    entropy = torch.tensor([0.5, 0.5])
 
     loss, mean_entropy, clip_fraction = minirl.ppo.compute_ppo_loss(
         old_log_probs=old_log_probs,
